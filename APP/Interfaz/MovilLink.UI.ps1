@@ -202,7 +202,7 @@ $lblSub.SetBounds(104, 64, 388, 20); $lblSub.BackColor = [System.Drawing.Color]:
 $head.Controls.Add($lblSub)
 
 $lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.1.0'
+$lblVer.Text = 'v1.1.1'
 $lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
 $lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $lblVer.AutoSize = $true; $lblVer.Location = '452,16'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
@@ -213,25 +213,29 @@ $est = New-Object System.Windows.Forms.Panel
 $est.Dock = 'Top'; $est.Height = 56; $est.BackColor = $C.banda
 $form.Controls.Add($est)
 
-$dot = New-Object System.Windows.Forms.Label
-$dot.Text = [string][char]0x25CF
-$dot.Font = New-Object System.Drawing.Font('Segoe UI', 20)
-$dot.AutoSize = $true; $dot.Location = '16,6'
-$dot.ForeColor = $C.rojo
-$est.Controls.Add($dot)
+# Punto de estado pintado: alineacion perfecta con el texto (un caracter
+# de fuente nunca queda centrado — lleva padding interno).
+$script:estadoColor = $C.rojo
+$est.Add_Paint({
+  param($s, $e)
+  $e.Graphics.SmoothingMode = 'AntiAlias'
+  $b = New-Object System.Drawing.SolidBrush($script:estadoColor)
+  $e.Graphics.FillEllipse($b, 18, 14, 12, 12)
+  $b.Dispose()
+})
 
 $lblEstado = New-Object System.Windows.Forms.Label
 $lblEstado.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
 $lblEstado.ForeColor = $C.texto
-$lblEstado.AutoSize = $true; $lblEstado.Location = '52,7'
+$lblEstado.AutoSize = $true; $lblEstado.Location = '50,9'
 $lblEstado.Text = 'Comprobando...'
 $est.Controls.Add($lblEstado)
 
 $lblDetalle = New-Object System.Windows.Forms.Label
-$lblDetalle.Font = New-Object System.Drawing.Font('Segoe UI', 8)
+$lblDetalle.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
 $lblDetalle.ForeColor = $C.subtexto
 $lblDetalle.AutoEllipsis = $true
-$lblDetalle.SetBounds(52, 30, 432, 20)
+$lblDetalle.SetBounds(52, 32, 432, 18)
 $est.Controls.Add($lblDetalle)
 
 # ---- boton principal ----
@@ -295,6 +299,17 @@ $lst.BackColor = [System.Drawing.Color]::White; $lst.ForeColor = $C.texto
 $lst.BorderStyle = 'FixedSingle'
 $grpHist.Controls.Add($lst)
 
+# Tooltip del item bajo el cursor (por si un endpoint largo queda cortado).
+$script:lstTipIdx = -2
+$lst.Add_MouseMove({
+  $i = $lst.IndexFromPoint($_.Location)
+  if ($i -lt 0 -or $i -ge $lst.Items.Count) { $i = -1 }
+  if ($i -ne $script:lstTipIdx) {
+    $script:lstTipIdx = $i
+    $tip.SetToolTip($lst, $(if ($i -ge 0) { "$($lst.Items[$i])" } else { '' }))
+  }
+})
+
 $btnProbar = New-Btn 'Probar' $C.azul $C.azulOver @(12, 138, 110, 27)
 $grpHist.Controls.Add($btnProbar)
 $btnQuitar = New-Btn 'Quitar' ([System.Drawing.Color]::White) ([System.Drawing.Color]::FromArgb(230, 238, 250)) @(130, 138, 110, 27)
@@ -307,16 +322,16 @@ $grpHist.Controls.Add($btnRecargar)
 # ---- log ----
 $lblLog = New-Object System.Windows.Forms.Label
 $lblLog.Text = 'Registro'; $lblLog.ForeColor = $C.subtexto
-$lblLog.AutoSize = $true; $lblLog.Location = '16,542'
+$lblLog.AutoSize = $true; $lblLog.Location = '16,538'
 $form.Controls.Add($lblLog)
 
 $txtLog = New-Object System.Windows.Forms.TextBox
 $txtLog.Multiline = $true; $txtLog.ReadOnly = $true
-$txtLog.ScrollBars = 'Vertical'
+$txtLog.ScrollBars = 'Vertical'; $txtLog.WordWrap = $true
 $txtLog.BackColor = $C.logFondo; $txtLog.ForeColor = $C.logTexto
 $txtLog.BorderStyle = 'FixedSingle'
 $txtLog.Font = New-Object System.Drawing.Font('Consolas', 8.5)
-$txtLog.SetBounds(16, 562, 468, 196)
+$txtLog.SetBounds(16, 568, 468, 190)
 $form.Controls.Add($txtLog)
 
 $lblPie = New-Object System.Windows.Forms.Label
@@ -327,7 +342,7 @@ $lblPie.SetBounds(16, 762, 468, 18)
 $form.Controls.Add($lblPie)
 
 $script:ui = @{
-  txtLog = $txtLog; dot = $dot; lblEstado = $lblEstado; lblDetalle = $lblDetalle
+  txtLog = $txtLog; lblEstado = $lblEstado; lblDetalle = $lblDetalle
   btnConectar = $btnConectar; btnManual = $btnManual; btnProbar = $btnProbar
   txtDev = $txtDev; txtManual = $txtManual; lst = $lst; chkVigilar = $chkVigilar
 }
@@ -341,15 +356,21 @@ function Get-DevPort {
   return 3000
 }
 
+# Detalle con tooltip: el texto truncado (ellipsis) se ve completo al pasar el mouse.
+function Set-Detalle([string]$t) {
+  $lblDetalle.Text = $t
+  $tip.SetToolTip($lblDetalle, $t)
+}
+
 function Update-Status {
   try {
     # Sin adb no hay nada que consultar — reintenta resolver por si ya se instalo.
     if (-not $script:adb) {
       $script:adb = Resolve-Adb $raiz
       if (-not $script:adb) {
-        $dot.ForeColor = $C.rojo
+        $script:estadoColor = $C.rojo; $est.Invalidate()
         $lblEstado.Text = 'Falta adb'
-        $lblDetalle.Text = 'Instala las herramientas (opcion 2 del menu MovilLink.bat)'
+        Set-Detalle 'Instala las herramientas (opcion 2 del menu MovilLink.bat)'
         return
       }
       Ui-Log 'adb detectado.'
@@ -357,16 +378,16 @@ function Update-Status {
     $lista = @(Get-Moviles)
     $dp = Get-DevPort
     if ($lista.Count -eq 0) {
-      $dot.ForeColor = $C.rojo
+      $script:estadoColor = $C.rojo; $est.Invalidate()
       $lblEstado.Text = 'Sin conexion'
-      $lblDetalle.Text = 'Pulsa CONECTAR o deja que el monitor lo haga'
+      Set-Detalle 'Pulsa CONECTAR o deja que el monitor lo haga'
       return
     }
     $serial = Select-Serial $lista
     $rev = Test-Reverse $serial $dp
-    $dot.ForeColor = if ($rev) { $C.verde } else { $C.ambar }
+    $script:estadoColor = if ($rev) { $C.verde } else { $C.ambar }; $est.Invalidate()
     $lblEstado.Text = if ($rev) { 'Listo' } else { 'Conectado (sin reverse)' }
-    $lblDetalle.Text = "$serial  ->  localhost:$dp/acceso"
+    Set-Detalle "$serial   $([char]0x2192)   localhost:$dp/acceso"
   } catch { Ui-Error $_ }
 }
 

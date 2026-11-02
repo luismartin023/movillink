@@ -1,5 +1,17 @@
 # CHANGELOG — MovilLink
 
+## v1.1.1 — 2026-11-02
+
+Pulido visual:
+
+- Punto de estado ahora es una **elipse pintada** — centrado exacto con
+  el texto de estado (el caracter de fuente quedaba desalineado).
+- Registro con **word-wrap**: las lineas largas envuelven por palabra,
+  ya no se cortan a media letra. Label "Registro" con el aire correcto.
+- **Tooltips**: el detalle truncado (ellipsis) muestra el serial
+  completo al pasar el mouse; igual cada item del historial.
+- `->` del detalle ahora es `→`.
+
 ## v1.1.0 — 2026-11-02
 
 Menu asistente y endurecimiento:
