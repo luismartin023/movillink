@@ -1,4 +1,4 @@
-# Genera la identidad visual de MovilLink en APP\Recursos\:
+﻿# Genera la identidad visual de MovilLink en APP\Recursos\:
 #   logo.png (512) + app.ico (256 PNG-en-ICO) + banner.png (1200x400)
 # Uso: powershell -ExecutionPolicy Bypass -File tools\Generar-Recursos.ps1
 Add-Type -AssemblyName System.Drawing

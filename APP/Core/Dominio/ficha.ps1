@@ -1,4 +1,4 @@
-# Dominio FICHA — historial de endpoints en telefono-ultimo.json.
+﻿# Dominio FICHA — historial de endpoints en telefono-ultimo.json.
 # Es la entrada MANUAL del usuario y el historial automatico a la vez:
 # la app lo lee/escribe y el usuario puede editarlo a mano.
 

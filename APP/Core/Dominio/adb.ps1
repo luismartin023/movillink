@@ -1,4 +1,4 @@
-# Dominio ADB — unica puerta de salida hacia el ejecutable adb.
+﻿# Dominio ADB — unica puerta de salida hacia el ejecutable adb.
 # Ninguna otra capa invoca adb.exe directamente.
 
 # Resuelve adb en orden: PATH -> platform-tools portable del paquete ->

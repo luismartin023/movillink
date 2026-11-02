@@ -1,4 +1,4 @@
-# MovilLink.CLI — adaptador de terminal. Mismo Core, sin ventana:
+﻿# MovilLink.CLI — adaptador de terminal. Mismo Core, sin ventana:
 #   .\MovilLink.CLI.ps1                      -> autodescubre y conecta
 #   .\MovilLink.CLI.ps1 -Conectar "IP:PUERTO" -> manual directo
 #   .\MovilLink.CLI.ps1 -Puerto 3001         -> otro puerto de dev server

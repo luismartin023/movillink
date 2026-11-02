@@ -6,7 +6,7 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=flat-square&logo=powershell&logoColor=white)
 ![ADB](https://img.shields.io/badge/ADB-WiFi%20(TLS)-1E7A3C?style=flat-square&logo=android&logoColor=white)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-yellow?style=flat-square)
-![Versión](https://img.shields.io/badge/v1.0.0-release-185E30?style=flat-square)
+![Versión](https://img.shields.io/badge/v1.0.1-release-185E30?style=flat-square)
 ![Hecho en RD](https://img.shields.io/badge/Hecho%20en-Rep%C3%BAblica%20Dominicana%20%F0%9F%87%A9%F0%9F%87%B4-CE1126?style=flat-square)
 
 </div>
@@ -32,7 +32,7 @@ pestaña.
 
 | Vía | Enlace | Para quién |
 |---|---|---|
-| **Release ZIP** | [MovilLink-v1.0.0.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
+| **Release ZIP** | [MovilLink-v1.0.1.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
 | Code → Download ZIP | Este repo | Si quieres el código fuente completo |
 
 ## Necesarios
@@ -54,9 +54,14 @@ lanza el instalador por ti.
 ```
 1. 0-Preparar-Antivirus.bat  (una sola vez — excluye la carpeta de Defender)
 2. 1-Instalar-Necesarios.bat (una sola vez — instala adb si falta)
-3. MovilLink.bat             (doble clic → abre la ventana)
+3. MovilLink.vbs             (doble clic → abre la ventana, CERO consola)
 4. Pulsa CONECTAR → en el móvil abre http://localhost:3000
 ```
+
+> `MovilLink.vbs` es el lanzador recomendado: arranca PowerShell sin
+> ventana — ni cmd, ni icono de PowerShell en la barra, solo la app con
+> su propio icono. `MovilLink.bat` queda como respaldo (hace lo mismo
+> pero parpadea una consola al abrir).
 
 - **CONECTAR** (botón verde): el plan completo automático.
 - **Vigilar** (activo por defecto): reconecta y re-aplica el reverse solo.
@@ -95,7 +100,8 @@ lanza el instalador por ti.
 ```
 ├── 0-Preparar-Antivirus.bat   paso 0: exclusion de Defender
 ├── 1-Instalar-Necesarios.bat  paso 1: instala adb (winget o portable)
-├── MovilLink.bat              lanzador → abre la ventana
+├── MovilLink.vbs              lanzador → ventana sin consola
+├── MovilLink.bat              lanzador respaldo
 ├── telefono-ultimo.json       ficha viva (local, gitignored)
 ├── README.md · LICENSE · CHANGELOG · CONTRIBUTING · CODE_OF_CONDUCT · SECURITY
 └── APP/                        dividida por dominios

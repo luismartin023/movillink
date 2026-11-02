@@ -1,5 +1,17 @@
 # CHANGELOG — MovilLink
 
+## v1.0.1 — 2026-11-02
+
+Pulido del lanzamiento (mismo día):
+
+- `MovilLink.vbs` — lanzador invisible: ni cmd, ni consola de PowerShell,
+  ni icono de PowerShell en la barra — solo la app con su icono propio.
+- Autor en el pie de la app (Luis Martin Peña Mejia — MKZ COMPANY).
+- Todos los `.ps1` en UTF-8 con BOM — caracteres con tilde/ñ correctos
+  en Windows PowerShell 5.1.
+- Colores explícitos en campos de texto e historial (eran negros/tenues).
+- Fix de orden de paneles anclados y textos cortados (Vigilar, Reaplicar).
+
 ## v1.0.0 — 2026-11-02
 
 Primera versión pública.

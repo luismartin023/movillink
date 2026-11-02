@@ -1,4 +1,4 @@
-# MovilLink - instalador de herramientas necesarias.
+﻿# MovilLink - instalador de herramientas necesarias.
 # Orden: verifica adb -> winget (GLOBAL, usuario) -> descarga oficial de
 # Google a APP\platform-tools (portable, sin tocar PATH). En ambos casos
 # la app lo encuentra sola via Resolve-Adb.

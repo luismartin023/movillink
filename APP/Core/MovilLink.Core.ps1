@@ -1,4 +1,4 @@
-# MovilLink.Core — orquestador del dominio.
+﻿# MovilLink.Core — orquestador del dominio.
 # La Interfaz (WinForms) y la Consola (CLI) son adaptadores que consumen
 # SOLO estas funciones: Initialize-MovilLink, Connect-Auto, Confirm-Conexion,
 # Invoke-ConexionDirecta y los helpers de ficha/reverse del dominio.

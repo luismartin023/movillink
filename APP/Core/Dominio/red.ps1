@@ -1,4 +1,4 @@
-# Dominio RED — sondas TCP y descubrimiento en la LAN.
+﻿# Dominio RED — sondas TCP y descubrimiento en la LAN.
 # Sin estado: cada funcion es pura sobre sus parametros.
 
 # Sonda TCP clasificada: Open = el puerto escucha; Refused = host VIVO pero

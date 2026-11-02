@@ -1,4 +1,4 @@
-# MovilLink.UI — adaptador WinForms. Solo presenta: toda la logica vive en
+﻿# MovilLink.UI — adaptador WinForms. Solo presenta: toda la logica vive en
 # APP\Core\MovilLink.Core.ps1 (dominio puro). Doble clic: MovilLink.bat.
 param(
   [int]$Puerto = 3000,
@@ -183,7 +183,7 @@ $lblSub.AutoSize = $true; $lblSub.Location = '104,56'; $lblSub.BackColor = [Syst
 $head.Controls.Add($lblSub)
 
 $lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.0.0'
+$lblVer.Text = 'v1.0.1'
 $lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
 $lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $lblVer.AutoSize = $true; $lblVer.Location = '104,76'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
@@ -298,7 +298,7 @@ $txtLog.SetBounds(16, 562, 468, 196)
 $form.Controls.Add($txtLog)
 
 $lblPie = New-Object System.Windows.Forms.Label
-$lblPie.Text = 'MKZ COMPANY - doble clic: MovilLink.bat'
+$lblPie.Text = 'Luis Martin Peña Mejia - MKZ COMPANY'
 $lblPie.ForeColor = $C.subtexto; $lblPie.Font = New-Object System.Drawing.Font('Segoe UI', 7.5)
 $lblPie.AutoSize = $false; $lblPie.TextAlign = 'MiddleCenter'
 $lblPie.SetBounds(16, 762, 468, 18)
