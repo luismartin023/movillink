@@ -46,7 +46,7 @@ function Write-ErrorLog($Err) {
 # Punto de entrada: fija raiz del paquete, ficha, logs y resuelve adb.
 function Initialize-MovilLink([string]$Raiz) {
   $script:Raiz = $Raiz
-  $script:ficha = Join-Path $Raiz 'telefono-ultimo.json'
+  $script:ficha = Join-Path $Raiz 'APP\Datos\telefono-ultimo.json'
   $script:logsDir = Join-Path $Raiz 'logs'
   New-Item -ItemType Directory -Force $script:logsDir | Out-Null
   $script:adb = Resolve-Adb $Raiz

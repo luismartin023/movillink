@@ -1,5 +1,5 @@
 # Datos vivos del usuario (la ficha real es local de cada PC)
-telefono-ultimo.json
+APP/Datos/telefono-ultimo.json
 
 # Logs de la capturadora de errores
 logs/

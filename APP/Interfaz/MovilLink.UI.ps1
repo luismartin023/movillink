@@ -25,10 +25,26 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+# Instancia unica: dos ventanas se pisarian el reverse y el monitor.
+$creada = $false
+$mutex = New-Object System.Threading.Mutex($true, 'Global\MovilLink.UI', [ref]$creada)
+if (-not $creada) {
+  [void][System.Windows.Forms.MessageBox]::Show('MovilLink ya esta abierto.`nRevisa la barra de tareas.', 'MovilLink', 'OK', 'Information')
+  exit 0
+}
+
 # --- cargar el Core (dominio) ---
 $raiz = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $PSScriptRoot '..\Core\MovilLink.Core.ps1')
 $cfg = Initialize-MovilLink $raiz
+
+# Capturadora global: cualquier error fuera de un handler tambien queda
+# registrado en logs\ y no tumba la app en silencio.
+trap {
+  $f = Write-ErrorLog $_
+  try { [void][System.Windows.Forms.MessageBox]::Show("MovilLink encontro un error.`n$($_.Exception.Message)`n`nDetalle: $f", 'MovilLink', 'OK', 'Error') } catch {}
+  continue
+}
 
 function Ui-Log([string]$m) {
   $tb = $script:ui.txtLog
@@ -124,7 +140,10 @@ function Show-Dependencias {
   $btnOut = New-Btn 'SALIR' $C.subtexto $C.texto @(358, 226, 88, 40)
   $f.Controls.Add($btnOut)
 
-  $btnInst.Add_Click({ Start-Process (Join-Path $raiz '1-Instalar-Necesarios.bat') })
+  $btnInst.Add_Click({
+    try { Start-Process powershell.exe '-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$raiz\APP\Instalar-Necesarios.ps1`"" }
+    catch { $f = Write-ErrorLog $_ }
+  })
   $btnRe.Add_Click({ $script:reintentar = $true; $f.Close() })
   $btnOut.Add_Click({ $f.Close() })
   [void]$f.ShowDialog()
@@ -172,26 +191,26 @@ $lblTitulo = New-Object System.Windows.Forms.Label
 $lblTitulo.Text = 'MovilLink'
 $lblTitulo.ForeColor = [System.Drawing.Color]::White
 $lblTitulo.Font = New-Object System.Drawing.Font('Segoe UI', 19, [System.Drawing.FontStyle]::Bold)
-$lblTitulo.AutoSize = $true; $lblTitulo.Location = '102,18'; $lblTitulo.BackColor = [System.Drawing.Color]::Transparent
+$lblTitulo.AutoSize = $true; $lblTitulo.Location = '102,14'; $lblTitulo.BackColor = [System.Drawing.Color]::Transparent
 $head.Controls.Add($lblTitulo)
 
 $lblSub = New-Object System.Windows.Forms.Label
 $lblSub.Text = 'Puente ADB WiFi - tu dev server en el movil'
 $lblSub.ForeColor = [System.Drawing.Color]::FromArgb(170, 200, 240)
 $lblSub.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
-$lblSub.AutoSize = $true; $lblSub.Location = '104,56'; $lblSub.BackColor = [System.Drawing.Color]::Transparent
+$lblSub.SetBounds(104, 64, 388, 20); $lblSub.BackColor = [System.Drawing.Color]::Transparent
 $head.Controls.Add($lblSub)
 
 $lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.0.1'
+$lblVer.Text = 'v1.1.0'
 $lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
 $lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
-$lblVer.AutoSize = $true; $lblVer.Location = '104,76'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
+$lblVer.AutoSize = $true; $lblVer.Location = '452,16'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
 $head.Controls.Add($lblVer)
 
 # ---- banda de estado ----
 $est = New-Object System.Windows.Forms.Panel
-$est.Dock = 'Top'; $est.Height = 50; $est.BackColor = $C.banda
+$est.Dock = 'Top'; $est.Height = 56; $est.BackColor = $C.banda
 $form.Controls.Add($est)
 
 $dot = New-Object System.Windows.Forms.Label
@@ -211,7 +230,8 @@ $est.Controls.Add($lblEstado)
 $lblDetalle = New-Object System.Windows.Forms.Label
 $lblDetalle.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $lblDetalle.ForeColor = $C.subtexto
-$lblDetalle.AutoSize = $true; $lblDetalle.Location = '52,28'
+$lblDetalle.AutoEllipsis = $true
+$lblDetalle.SetBounds(52, 30, 432, 20)
 $est.Controls.Add($lblDetalle)
 
 # ---- boton principal ----
@@ -231,18 +251,18 @@ $lblDev.AutoSize = $true; $lblDev.Location = '12,25'
 $grpDev.Controls.Add($lblDev)
 
 $txtDev = New-Object System.Windows.Forms.TextBox
-$txtDev.Text = "$Puerto"; $txtDev.SetBounds(90, 22, 66, 23)
+$txtDev.Text = "$Puerto"; $txtDev.SetBounds(112, 22, 56, 23)
 $txtDev.BackColor = [System.Drawing.Color]::White; $txtDev.ForeColor = $C.texto
 $txtDev.BorderStyle = 'FixedSingle'
 $grpDev.Controls.Add($txtDev)
 
-$btnReverse = New-Btn 'Reaplicar reverse' $C.azul $C.azulOver @(164, 20, 136, 27)
+$btnReverse = New-Btn 'Reaplicar reverse' $C.azul $C.azulOver @(176, 20, 132, 27)
 $grpDev.Controls.Add($btnReverse)
 
 $chkVigilar = New-Object System.Windows.Forms.CheckBox
 $chkVigilar.Text = 'Vigilar (auto, 3s)'
 $chkVigilar.ForeColor = $C.texto; $chkVigilar.Checked = $true
-$chkVigilar.AutoSize = $true; $chkVigilar.Location = '306,25'
+$chkVigilar.AutoSize = $true; $chkVigilar.Location = '316,25'
 $tip = New-Object System.Windows.Forms.ToolTip
 $tip.SetToolTip($chkVigilar, 'Cada 3s: reconecta si se cayo y re-aplica el reverse si falta')
 $grpDev.Controls.Add($chkVigilar)
@@ -277,9 +297,11 @@ $grpHist.Controls.Add($lst)
 
 $btnProbar = New-Btn 'Probar' $C.azul $C.azulOver @(12, 138, 110, 27)
 $grpHist.Controls.Add($btnProbar)
-$btnQuitar = New-Btn 'Quitar' $C.subtexto $C.texto @(130, 138, 110, 27)
+$btnQuitar = New-Btn 'Quitar' ([System.Drawing.Color]::White) ([System.Drawing.Color]::FromArgb(230, 238, 250)) @(130, 138, 110, 27)
+$btnQuitar.ForeColor = $C.azul; $btnQuitar.FlatAppearance.BorderColor = $C.azul
 $grpHist.Controls.Add($btnQuitar)
-$btnRecargar = New-Btn 'Recargar' $C.subtexto $C.texto @(248, 138, 110, 27)
+$btnRecargar = New-Btn 'Recargar' ([System.Drawing.Color]::White) ([System.Drawing.Color]::FromArgb(230, 238, 250)) @(248, 138, 110, 27)
+$btnRecargar.ForeColor = $C.azul; $btnRecargar.FlatAppearance.BorderColor = $C.azul
 $grpHist.Controls.Add($btnRecargar)
 
 # ---- log ----
@@ -311,10 +333,29 @@ $script:ui = @{
 }
 $script:nextRetry = Get-Date
 
+# Puerto dev validado: solo 1-65535; cualquier otra cosa vuelve a 3000.
+function Get-DevPort {
+  $dp = 0
+  if ([int]::TryParse($txtDev.Text.Trim(), [ref]$dp) -and $dp -ge 1 -and $dp -le 65535) { return $dp }
+  if ($txtDev.Text.Trim() -ne '3000') { $txtDev.Text = '3000'; Ui-Log 'Puerto invalido -> vuelve a 3000 (rango 1-65535).' }
+  return 3000
+}
+
 function Update-Status {
   try {
+    # Sin adb no hay nada que consultar — reintenta resolver por si ya se instalo.
+    if (-not $script:adb) {
+      $script:adb = Resolve-Adb $raiz
+      if (-not $script:adb) {
+        $dot.ForeColor = $C.rojo
+        $lblEstado.Text = 'Falta adb'
+        $lblDetalle.Text = 'Instala las herramientas (opcion 2 del menu MovilLink.bat)'
+        return
+      }
+      Ui-Log 'adb detectado.'
+    }
     $lista = @(Get-Moviles)
-    $dp = 3000; [void][int]::TryParse($txtDev.Text, [ref]$dp)
+    $dp = Get-DevPort
     if ($lista.Count -eq 0) {
       $dot.ForeColor = $C.rojo
       $lblEstado.Text = 'Sin conexion'
@@ -331,14 +372,19 @@ function Update-Status {
 
 function Update-Ficha {
   $lst.Items.Clear()
-  foreach ($e in (Get-Candidatos)) { [void]$lst.Items.Add(('{0}:{1}   ({2})' -f $e.ip, $e.adbPort, $e.actualizado)) }
+  $items = @(Get-Candidatos)
+  if ($items.Count -eq 0) {
+    [void]$lst.Items.Add('(vacio - conecta para guardar o edita APP\Datos\telefono-ultimo.json)')
+    return
+  }
+  foreach ($e in $items) { [void]$lst.Items.Add(('{0}:{1}   ({2})' -f $e.ip, $e.adbPort, $e.actualizado)) }
 }
 
 function Start-Worker([string]$Accion, [string]$Arg = '') {
   $worker = $script:ui.worker
   if ($worker.IsBusy) { return }
-  $dp = 3000
-  [void][int]::TryParse($script:ui.txtDev.Text, [ref]$dp)
+  if (-not $script:adb) { Ui-Log 'adb no encontrado — instala primero (opcion 2 del menu).'; return }
+  $dp = Get-DevPort
   $btnConectar.Enabled = $false; $btnManual.Enabled = $false; $btnProbar.Enabled = $false
   $worker.RunWorkerAsync(@{ accion = $Accion; arg = $Arg; devPort = $dp })
 }
@@ -402,7 +448,7 @@ $btnManual.Add_Click({
 
 $btnProbar.Add_Click({
   try {
-    if ($lst.SelectedIndex -lt 0) { Ui-Log 'Selecciona una entrada del historial.'; return }
+    if ($lst.SelectedIndex -lt 0 -or "$($lst.SelectedItem)".StartsWith('(')) { Ui-Log 'Selecciona un endpoint valido del historial.'; return }
     $ep = ($lst.SelectedItem -split '\s')[0]
     Start-Worker 'directo' $ep
   } catch { Ui-Error $_ }
@@ -410,7 +456,7 @@ $btnProbar.Add_Click({
 
 $btnQuitar.Add_Click({
   try {
-    if ($lst.SelectedIndex -lt 0) { return }
+    if ($lst.SelectedIndex -lt 0 -or "$($lst.SelectedItem)".StartsWith('(')) { return }
     $ep = ($lst.SelectedItem -split '\s')[0]
     if ($ep -match '^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$') { Remove-Endpoint $Matches[1] ([int]$Matches[2]) }
     Update-Ficha
@@ -421,10 +467,11 @@ $btnRecargar.Add_Click({ try { Update-Ficha } catch { Ui-Error $_ } })
 
 $btnReverse.Add_Click({
   try {
+    if (-not $script:adb) { Ui-Log 'adb no encontrado.'; return }
     $lista = @(Get-Moviles)
     if (-not $lista) { Ui-Log 'Sin movil conectado.'; return }
     $serial = Select-Serial $lista
-    $dp = 3000; [void][int]::TryParse($txtDev.Text, [ref]$dp)
+    $dp = Get-DevPort
     Set-Reverse $serial $dp
     Ui-Log "reverse re-aplicado: tcp:$dp"
     Update-Status
@@ -436,9 +483,9 @@ $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 3000
 $timer.Add_Tick({
   try {
-    if ($worker.IsBusy) { return }
+    if ($worker.IsBusy -or -not $script:adb) { Update-Status; return }
     $lista = @(Get-Moviles)
-    $dp = 3000; [void][int]::TryParse($txtDev.Text, [ref]$dp)
+    $dp = Get-DevPort
     if ($lista.Count -eq 0) {
       if ($chkVigilar.Checked -and (Get-Date) -gt $script:nextRetry) {
         Ui-Log 'Sin conexion -> autoconectando...'
@@ -461,7 +508,7 @@ $timer.Start()
 # ------------------------------- arranque -------------------------------
 $form.Add_Shown({
   Ui-Log 'MovilLink listo. El monitor vigila conexion y reverse.'
-  if (-not $cfg.adbOk) { Ui-Log 'AVISO: adb no encontrado — ejecuta 1-Instalar-Necesarios.bat' }
+  if (-not $cfg.adbOk) { Ui-Log 'AVISO: adb no encontrado — opcion 2 del menu MovilLink.bat' }
   Update-Ficha
   Update-Status
 })

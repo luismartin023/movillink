@@ -6,7 +6,7 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=flat-square&logo=powershell&logoColor=white)
 ![ADB](https://img.shields.io/badge/ADB-WiFi%20(TLS)-1E7A3C?style=flat-square&logo=android&logoColor=white)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-yellow?style=flat-square)
-![Versión](https://img.shields.io/badge/v1.0.1-release-185E30?style=flat-square)
+![Versión](https://img.shields.io/badge/v1.1.0-release-185E30?style=flat-square)
 ![Hecho en RD](https://img.shields.io/badge/Hecho%20en-Rep%C3%BAblica%20Dominicana%20%F0%9F%87%A9%F0%9F%87%B4-CE1126?style=flat-square)
 
 </div>
@@ -32,16 +32,16 @@ pestaña.
 
 | Vía | Enlace | Para quién |
 |---|---|---|
-| **Release ZIP** | [MovilLink-v1.0.1.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
+| **Release ZIP** | [MovilLink-v1.1.0.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
 | Code → Download ZIP | Este repo | Si quieres el código fuente completo |
 
 ## Necesarios
 
-Lo que el usuario debe tener — el instalador lo resuelve solo:
+Lo que el usuario debe tener — el menú lo resuelve solo:
 
 | Herramienta | Para qué | Cómo se instala |
 |---|---|---|
-| **Android Platform-Tools** (`adb`) | Hablar con el móvil por WiFi | `1-Instalar-Necesarios.bat` — winget (global) o descarga oficial portable a `APP\platform-tools\` |
+| **Android Platform-Tools** (`adb`) | **El corazón de la app** — conectar el móvil a la PC por WiFi para el dev de localhost | Opción `[2]` del menú — winget (global) o ZIP oficial portable a `APP\platform-tools\` |
 | **PowerShell 5.1+** | La app entera | Ya viene en Windows 10/11 |
 | **Depuración inalámbrica ON** en el móvil | Que el PC lo vea | Ajustes → Opciones de desarrollador → Depuración inalámbrica (misma WiFi) |
 | **Vinculación** (una sola vez) | `adb pair IP:PUERTO` con el código del móvil | Manual, la primera vez por PC |
@@ -52,23 +52,22 @@ lanza el instalador por ti.
 ## Uso
 
 ```
-1. 0-Preparar-Antivirus.bat  (una sola vez — excluye la carpeta de Defender)
-2. 1-Instalar-Necesarios.bat (una sola vez — instala adb si falta)
-3. MovilLink.vbs             (doble clic → abre la ventana, CERO consola)
-4. Pulsa CONECTAR → en el móvil abre http://localhost:3000
+1. MovilLink.bat  (doble clic → abre el ASISTENTE paso a paso)
+2. El menú te dice qué falta:  [1] antivirus → [2] instalar adb → [3] abrir app
+3. Pulsa CONECTAR → en el móvil abre http://localhost:3000
 ```
 
-> `MovilLink.vbs` es el lanzador recomendado: arranca PowerShell sin
-> ventana — ni cmd, ni icono de PowerShell en la barra, solo la app con
-> su propio icono. `MovilLink.bat` queda como respaldo (hace lo mismo
-> pero parpadea una consola al abrir).
+> Un solo `.bat` en la raíz: un menú que muestra el estado en vivo
+> (adb / móvil / reverse) y te guía en orden. Si falta adb, la propia
+> app también ofrece **INSTALAR AHORA**. La ventana se abre sin consola
+> vía `APP\Lanzador.vbs` — ni cmd, ni icono de PowerShell en la barra.
 
 - **CONECTAR** (botón verde): el plan completo automático.
 - **Vigilar** (activo por defecto): reconecta y re-aplica el reverse solo.
 - **Conexión directa**: escribe el `IP:PUERTO` de la pantalla del móvil.
-- **Historial**: la lista `telefono-ultimo.json` — prueba entradas de una
-  en una o edítala a mano.
-- **Consola**: `APP\Consola\MovilLink.CLI.bat` — mismo motor por terminal.
+- **Historial**: la lista `APP\Datos\telefono-ultimo.json` — prueba
+  entradas de una en una o edítala a mano.
+- **Consola**: opción `[4]` del menú — mismo motor por terminal.
 
 ## Cómo conecta (orden real)
 
@@ -98,19 +97,20 @@ lanza el instalador por ti.
 ## Estructura
 
 ```
-├── 0-Preparar-Antivirus.bat   paso 0: exclusion de Defender
-├── 1-Instalar-Necesarios.bat  paso 1: instala adb (winget o portable)
-├── MovilLink.vbs              lanzador → ventana sin consola
-├── MovilLink.bat              lanzador respaldo
-├── telefono-ultimo.json       ficha viva (local, gitignored)
+├── MovilLink.bat              UNICO lanzador: menu asistente paso a paso
 ├── README.md · LICENSE · CHANGELOG · CONTRIBUTING · CODE_OF_CONDUCT · SECURITY
 └── APP/                        dividida por dominios
     ├── Core/        MovilLink.Core.ps1 — orquestador (Connect-Auto, reverse)
     │   └── Dominio/ adb.ps1 · red.ps1 · ficha.ps1 — dominio puro
+    ├── Datos/       telefono-ultimo.json (ficha viva, gitignored) + ejemplo
     ├── Interfaz/    MovilLink.UI.ps1 — adaptador WinForms (DPI-aware)
     ├── Consola/     MovilLink.CLI.ps1/.bat — adaptador terminal
     ├── Recursos/    logo.png · app.ico · banner.png · captura.png
-    └── Instalar-Necesarios.ps1 — instalador de dependencias
+    ├── Lanzador.vbs           abre la ventana sin consola
+    ├── Estado.ps1             linea de estado para el menu
+    ├── Diagnostico.ps1        adb / mDNS / reverse / ficha de un vistazo
+    ├── Preparar-Antivirus.ps1 exclusion de Defender (self-elevating)
+    └── Instalar-Necesarios.ps1 instalador de dependencias
 ```
 
 La lógica vive solo en `Core/`; la ventana y la consola son adaptadores

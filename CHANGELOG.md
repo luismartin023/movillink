@@ -1,5 +1,22 @@
 # CHANGELOG — MovilLink
 
+## v1.1.0 — 2026-11-02
+
+Menu asistente y endurecimiento:
+
+- **Un solo `.bat` en la raiz**: `MovilLink.bat` abre un menu guiado paso
+  a paso con estado en vivo (adb / movil / reverse): exclusion de
+  antivirus, instalar herramientas, abrir app, consola, diagnostico y logs.
+- `APP/Estado.ps1`, `APP/Diagnostico.ps1`, `APP/Preparar-Antivirus.ps1`
+  (self-elevating) y `APP/Lanzador.vbs` (ventana sin consola) — los bats
+  sueltos de la raiz desaparecen.
+- **Dominio Datos**: la ficha vive en `APP/Datos/telefono-ultimo.json`
+  (+ `.ejemplo`), ya no en la raiz.
+- UI endurecida: puerto dev validado (1-65535, vuelve a 3000), guardia
+  cuando falta adb en todos los caminos (estado, monitor, botones),
+  historial con estado vacio guiado, `AutoEllipsis` en el detalle y
+  `trap` global a `logs/` ademas del try/catch por handler.
+
 ## v1.0.1 — 2026-11-02
 
 Pulido del lanzamiento (mismo día):
