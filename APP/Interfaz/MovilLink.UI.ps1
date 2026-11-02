@@ -161,7 +161,7 @@ while (-not $cfg.adbOk) {
 # ============================ VISTA PRINCIPAL ============================
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'MovilLink - Puente ADB WiFi'
-$form.ClientSize = New-Object System.Drawing.Size(500, 786)
+$form.ClientSize = New-Object System.Drawing.Size(500, 860)
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
 $form.StartPosition = 'CenterScreen'
@@ -202,7 +202,7 @@ $lblSub.SetBounds(104, 64, 388, 20); $lblSub.BackColor = [System.Drawing.Color]:
 $head.Controls.Add($lblSub)
 
 $lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.1.1'
+$lblVer.Text = 'v1.2.0'
 $lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
 $lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $lblVer.AutoSize = $true; $lblVer.Location = '452,16'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
@@ -286,10 +286,30 @@ $grpManual.Controls.Add($txtManual)
 $btnManual = New-Btn 'Conectar directo' $C.azul $C.azulOver @(318, 20, 138, 27)
 $grpManual.Controls.Add($btnManual)
 
+# ---- dispositivo conectado ----
+$grpDisp = New-Object System.Windows.Forms.GroupBox
+$grpDisp.Text = 'Dispositivo'; $grpDisp.ForeColor = $C.texto
+$grpDisp.SetBounds(16, 356, 468, 66)
+$form.Controls.Add($grpDisp)
+
+$lblDispNombre = New-Object System.Windows.Forms.Label
+$lblDispNombre.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold)
+$lblDispNombre.ForeColor = $C.texto
+$lblDispNombre.SetBounds(12, 18, 444, 18)
+$lblDispNombre.Text = 'Ninguno conectado'
+$grpDisp.Controls.Add($lblDispNombre)
+
+$lblDispInfo = New-Object System.Windows.Forms.Label
+$lblDispInfo.Font = New-Object System.Drawing.Font('Segoe UI', 8)
+$lblDispInfo.ForeColor = $C.subtexto
+$lblDispInfo.AutoEllipsis = $true
+$lblDispInfo.SetBounds(12, 40, 444, 16)
+$grpDisp.Controls.Add($lblDispInfo)
+
 # ---- historial ----
 $grpHist = New-Object System.Windows.Forms.GroupBox
 $grpHist.Text = 'Historial (telefono-ultimo.json - editable a mano)'; $grpHist.ForeColor = $C.texto
-$grpHist.SetBounds(16, 356, 468, 178)
+$grpHist.SetBounds(16, 430, 468, 178)
 $form.Controls.Add($grpHist)
 
 $lst = New-Object System.Windows.Forms.ListBox
@@ -322,7 +342,7 @@ $grpHist.Controls.Add($btnRecargar)
 # ---- log ----
 $lblLog = New-Object System.Windows.Forms.Label
 $lblLog.Text = 'Registro'; $lblLog.ForeColor = $C.subtexto
-$lblLog.AutoSize = $true; $lblLog.Location = '16,538'
+$lblLog.AutoSize = $true; $lblLog.Location = '16,612'
 $form.Controls.Add($lblLog)
 
 $txtLog = New-Object System.Windows.Forms.TextBox
@@ -331,14 +351,14 @@ $txtLog.ScrollBars = 'Vertical'; $txtLog.WordWrap = $true
 $txtLog.BackColor = $C.logFondo; $txtLog.ForeColor = $C.logTexto
 $txtLog.BorderStyle = 'FixedSingle'
 $txtLog.Font = New-Object System.Drawing.Font('Consolas', 8.5)
-$txtLog.SetBounds(16, 568, 468, 190)
+$txtLog.SetBounds(16, 642, 468, 190)
 $form.Controls.Add($txtLog)
 
 $lblPie = New-Object System.Windows.Forms.Label
 $lblPie.Text = 'Luis Martin Peña Mejia - MKZ COMPANY'
 $lblPie.ForeColor = $C.subtexto; $lblPie.Font = New-Object System.Drawing.Font('Segoe UI', 7.5)
 $lblPie.AutoSize = $false; $lblPie.TextAlign = 'MiddleCenter'
-$lblPie.SetBounds(16, 762, 468, 18)
+$lblPie.SetBounds(16, 836, 468, 18)
 $form.Controls.Add($lblPie)
 
 $script:ui = @{
@@ -362,6 +382,31 @@ function Set-Detalle([string]$t) {
   $tip.SetToolTip($lblDetalle, $t)
 }
 
+# Ficha del dispositivo: modelo/marca/Android/IP via getprop — cacheada por
+# serial para no lanzar shells adb en cada tick del monitor.
+$script:dispCache = $null
+function Get-InfoDisp([string]$serial) {
+  if ($script:dispCache -and $script:dispCache.s -eq $serial) { return $script:dispCache }
+  $info = @{ s = $serial; nombre = ''; so = ''; ip = '' }
+  try {
+    $model = ([string](& $script:adb -s $serial shell getprop ro.product.model 2>$null)).Trim()
+    $brand = ([string](& $script:adb -s $serial shell getprop ro.product.brand 2>$null)).Trim()
+    $ver   = ([string](& $script:adb -s $serial shell getprop ro.build.version.release 2>$null)).Trim()
+    if ($model) {
+      $marca = if ($brand) { (Get-Culture).TextInfo.ToTitleCase($brand.ToLower()) } else { '' }
+      $info.nombre = "$marca $model".Trim()
+    }
+    if ($ver) { $info.so = "Android $ver" }
+    if ($serial -match '^(\d{1,3}(?:\.\d{1,3}){3}):') { $info.ip = $Matches[1] }
+    else {
+      $route = [string](& $script:adb -s $serial shell ip route get 1.1.1.1 2>$null)
+      if ($route -match 'src\s+(\d{1,3}(?:\.\d{1,3}){3})') { $info.ip = $Matches[1] }
+    }
+  } catch {}
+  $script:dispCache = $info
+  return $info
+}
+
 function Update-Status {
   try {
     # Sin adb no hay nada que consultar — reintenta resolver por si ya se instalo.
@@ -371,6 +416,7 @@ function Update-Status {
         $script:estadoColor = $C.rojo; $est.Invalidate()
         $lblEstado.Text = 'Falta adb'
         Set-Detalle 'Instala las herramientas (opcion 2 del menu MovilLink.bat)'
+        $lblDispNombre.Text = 'Ninguno conectado'; $lblDispInfo.Text = ''
         return
       }
       Ui-Log 'adb detectado.'
@@ -381,6 +427,7 @@ function Update-Status {
       $script:estadoColor = $C.rojo; $est.Invalidate()
       $lblEstado.Text = 'Sin conexion'
       Set-Detalle 'Pulsa CONECTAR o deja que el monitor lo haga'
+      $lblDispNombre.Text = 'Ninguno conectado'; $lblDispInfo.Text = ''; $script:dispCache = $null
       return
     }
     $serial = Select-Serial $lista
@@ -388,6 +435,10 @@ function Update-Status {
     $script:estadoColor = if ($rev) { $C.verde } else { $C.ambar }; $est.Invalidate()
     $lblEstado.Text = if ($rev) { 'Listo' } else { 'Conectado (sin reverse)' }
     Set-Detalle "$serial   $([char]0x2192)   localhost:$dp/acceso"
+    $d = Get-InfoDisp $serial
+    $lblDispNombre.Text = "$(if ($d.nombre) { $d.nombre } else { 'Dispositivo Android' })$(if ($d.so) { "   ·   $($d.so)" } else { '' })"
+    $lblDispInfo.Text = "IP: $(if ($d.ip) { $d.ip } else { '?' })   ·   $serial"
+    $tip.SetToolTip($lblDispInfo, $lblDispInfo.Text)
   } catch { Ui-Error $_ }
 }
 

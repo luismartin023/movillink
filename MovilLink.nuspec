@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
+  <metadata>
+    <id>MovilLink</id>
+    <version>1.2.0</version>
+    <authors>MKZ COMPANY</authors>
+    <owners>luismartin023</owners>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <license type="expression">MIT</license>
+    <projectUrl>https://github.com/luismartin023/movillink</projectUrl>
+    <repository type="git" url="https://github.com/luismartin023/movillink.git" />
+    <description>Puente ADB WiFi: conecta tu movil Android al dev server local por WiFi. Monitor con reconexion y adb reverse automatico.</description>
+    <releaseNotes>https://github.com/luismartin023/movillink/releases</releaseNotes>
+    <tags>adb adb-wifi android dev-tools powershell windows</tags>
+    <readme>docs\README.md</readme>
+  </metadata>
+  <files>
+    <file src="MovilLink.bat" target="content" />
+    <file src="APP\**" target="content\APP" exclude="**\telefono-ultimo.json;**\*.log;**\platform-tools\**" />
+    <file src="README.md" target="docs\README.md" />
+    <file src="LICENSE" target="LICENSE" />
+  </files>
+</package>

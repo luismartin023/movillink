@@ -1,5 +1,15 @@
 # CHANGELOG — MovilLink
 
+## v1.2.0 — 2026-11-02
+
+Tarjeta de dispositivo:
+
+- Nueva seccion **"Dispositivo"** con la ficha del movil conectado:
+  nombre real (marca + modelo via `getprop`), version de Android,
+  IP resuelta por `ip route` y serial completo con tooltip.
+- Cacheada por serial — no lanza shells adb en cada tick del monitor;
+  se reconsulta solo al cambiar de telefono.
+
 ## v1.1.1 — 2026-11-02
 
 Pulido visual:

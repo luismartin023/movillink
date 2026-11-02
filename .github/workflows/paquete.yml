@@ -1,0 +1,28 @@
+name: paquete
+
+# Publica el .nupkg en GitHub Packages al salir un release.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  nuget:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pack (version = tag del release)
+        shell: pwsh
+        run: |
+          $ver = "${{ github.event.release.tag_name }}".TrimStart('v')
+          (Get-Content MovilLink.nuspec) -replace '<version>[^<]+</version>', "<version>$ver</version>" | Set-Content MovilLink.nuspec
+          nuget pack MovilLink.nuspec -OutputDirectory dist -NoDefaultExcludes
+          Get-ChildItem dist
+
+      - name: Push a GitHub Packages (NuGet)
+        shell: pwsh
+        run: dotnet nuget push "dist\*.nupkg" --source "https://nuget.pkg.github.com/luismartin023/index.json" --api-key "${{ secrets.GITHUB_TOKEN }}" --skip-duplicate
