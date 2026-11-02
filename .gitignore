@@ -1,0 +1,13 @@
+# Datos vivos del usuario (la ficha real es local de cada PC)
+telefono-ultimo.json
+
+# Logs de la capturadora de errores
+logs/
+*.log
+
+# platform-tools descargado en modo portable (pesa ~15 MB, no es codigo)
+APP/platform-tools/
+
+# Temporales
+*.tmp
+*.bak
