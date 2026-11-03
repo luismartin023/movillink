@@ -65,11 +65,25 @@ function Connect-Auto {
   Log 'Buscando el movil (mDNS)...'
   & $script:adb mdns services | Out-Null
   foreach ($i in 1..8) {
+    if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
     $lista = @(Get-Moviles)
     if ($lista.Count -gt 0) { break }
     if ($i -eq 4) {
-      $linea = & $script:adb mdns services | Where-Object { $_ -match '_adb-tls-connect\._tcp' } | Select-Object -First 1
-      if ($linea -and $linea -match '([\d.]+:\d+)\s*$') { & $script:adb connect $Matches[1] | Out-Null }
+      # mDNS puede anunciar endpoints muertos (cache viejo tras cambiar de
+      # red): sonda cada anuncio y conecta solo al que responde.
+      $anuncios = @(& $script:adb mdns services | Where-Object { $_ -match '_adb-tls-connect\._tcp' } |
+        ForEach-Object { if ($_ -match '([\d.]+:\d+)\s*$') { $Matches[1] } } | Sort-Object -Unique)
+      $vivo = $false
+      foreach ($ep in $anuncios) {
+        $ip,$pp = $ep -split ':'
+        if ((Test-SondaTcp $ip ([int]$pp) 800) -eq 'Open') { $vivo = $true; & $script:adb connect $ep | Out-Null }
+      }
+      if ($anuncios -and -not $vivo -and -not $script:mdnsPurgado) {
+        $script:mdnsPurgado = $true
+        Log 'mDNS anuncia endpoints muertos — purgando el daemon...'
+        Restart-AdbDaemon
+        & $script:adb mdns services | Out-Null
+      }
     }
     Start-Sleep -Milliseconds 700
   }
@@ -81,14 +95,18 @@ function Connect-Auto {
     if (-not $lista) {
       $linea = & $script:adb mdns services | Where-Object { $_ -match '_adb-tls-connect\._tcp' } | Select-Object -First 1
       if ($linea -and $linea -match '([\d.]+:\d+)\s*$') {
-        & $script:adb connect $Matches[1] | Out-Null
-        $lista = @(Wait-Movil 5 500)
+        $ep = $Matches[1]; $ip,$pp = $ep -split ':'
+        if ((Test-SondaTcp $ip ([int]$pp) 800) -eq 'Open') {
+          & $script:adb connect $ep | Out-Null
+          $lista = @(Wait-Movil 5 500)
+        }
       }
     }
   }
   if ($lista) { return (Select-Serial $lista) }
 
   # ---- plan B: ficha (historial manual/auto), misma red primero ----
+  if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
   $candidatos = @(Get-Candidatos | Sort-Object { -not (Test-MismaRed $_.ip) })
   $ipsVivas = @()
   foreach ($e in $candidatos) {
@@ -110,6 +128,7 @@ function Connect-Auto {
     if ($vecinos) {
       Log "Sondeando $($vecinos.Count) vecinos ARP en puertos $($puertosFicha -join ', ')..."
       foreach ($ip in $vecinos) {
+        if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
         foreach ($pp in $puertosFicha) {
           $s = Test-SondaTcp $ip ([int]$pp) 800
           if ($s -eq 'Refused' -and $ipsVivas -notcontains $ip) { $ipsVivas += $ip }
@@ -127,6 +146,7 @@ function Connect-Auto {
   foreach ($pp in $puertosFicha) {
     Log "Barriendo la subred en el puerto $pp..."
     foreach ($ip in (Find-EnSubred ([int]$pp))) {
+      if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
       Log "  ${ip}:$pp responde -> adb connect"
       & $script:adb connect "${ip}:$pp" | Out-Null
       $lista = @(Wait-Movil 2 400)
@@ -148,7 +168,7 @@ function Connect-Auto {
 
 # Conexion directa a un endpoint escrito a mano (caja IP:PUERTO o ficha).
 function Invoke-ConexionDirecta([string]$Endpoint) {
-  if (-not $script:adb) { return $null }
+  if (-not $script:adb -or $script:cancelar) { return $null }
   Log "adb connect $Endpoint"
   $r = & $script:adb connect $Endpoint 2>&1 | Out-String
   Log $r.Trim()

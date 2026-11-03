@@ -1,5 +1,22 @@
 # CHANGELOG — MovilLink
 
+## v1.2.1 — 2026-11-03
+
+Control del usuario y mDNS podrido:
+
+- **Boton Detener** (rojo, junto a CONECTAR): cancela el intento en curso
+  y pausa el monitor 60s — ventana libre para escribir el endpoint a mano.
+- **Conexion directa con prioridad**: pulsarla estando ocupado cancela el
+  intento actual y prueba tu endpoint automaticamente — el click nunca
+  se pierde.
+- Fix: la bandera de cancelacion quedaba pegada tras Detener y
+  autocancelaba el siguiente intento — ahora se limpia al arrancar.
+- mDNS: los anuncios se sondean antes de conectar (solo se usa el vivo);
+  si todos estan muertos (cache podrido tras cambiar de red) se purga
+  el daemon y se redescubre.
+- Feedback: click durante intento en curso avisa en el registro en vez
+  de ignorarse en silencio.
+
 ## v1.2.0 — 2026-11-02
 
 Tarjeta de dispositivo:

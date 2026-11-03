@@ -17,14 +17,13 @@ $texto = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(
 $fSub = New-Object System.Drawing.Font('Segoe UI', 10)
 $fMono = New-Object System.Drawing.Font('Consolas', 11)
 
+# --- linea de detalle de estado (endpoint real -> localhost) ---
+Tapa 55 178 430 20 490 190
+$g.DrawString('192.168.1.50:45000   ->   localhost:3000/acceso', $fSub, $gris, 55, 180)
+
 # --- linea de info del dispositivo (IP + serial) ---
 Tapa 26 438 468 26 485 450
-$g.DrawString('IP: 192.168.1.50   ·   adb-XXXXXXX._adb-tls-connect._tcp', $fSub, $gris, 30, 440)
-
-# --- filas del historial (IPs/puertos reales) ---
-Tapa 30 482 468 42 485 500
-$g.DrawString('192.168.1.50:45000    (2026-01-01T00:00:00)', $fMono, $texto, 40, 484)
-$g.DrawString('10.0.0.20:39000      (2025-12-30T09:15:00)', $fMono, $texto, 40, 503)
+$g.DrawString('IP: 192.168.1.50  -  adb-XXXXXXX._adb-tls-connect._tcp', $fSub, $gris, 30, 440)
 
 $g.Dispose()
 $tmp = "$png.tmp.png"

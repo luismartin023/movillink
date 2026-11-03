@@ -202,7 +202,7 @@ $lblSub.SetBounds(104, 64, 388, 20); $lblSub.BackColor = [System.Drawing.Color]:
 $head.Controls.Add($lblSub)
 
 $lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.2.0'
+$lblVer.Text = 'v1.2.1'
 $lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
 $lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $lblVer.AutoSize = $true; $lblVer.Location = '452,16'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
@@ -238,10 +238,14 @@ $lblDetalle.AutoEllipsis = $true
 $lblDetalle.SetBounds(52, 32, 432, 18)
 $est.Controls.Add($lblDetalle)
 
-# ---- boton principal ----
-$btnConectar = New-Btn 'CONECTAR' $C.verde $C.verdeOver @(16, 168, 468, 46)
+# ---- boton principal + detener ----
+$btnConectar = New-Btn 'CONECTAR' $C.verde $C.verdeOver @(16, 168, 336, 46)
 $btnConectar.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
 $form.Controls.Add($btnConectar)
+
+$btnDetener = New-Btn 'Detener' $C.rojo ([System.Drawing.Color]::FromArgb(185, 40, 40)) @(360, 168, 124, 46)
+$btnDetener.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold)
+$form.Controls.Add($btnDetener)
 
 # ---- reverse ----
 $grpDev = New-Object System.Windows.Forms.GroupBox
@@ -367,6 +371,9 @@ $script:ui = @{
   txtDev = $txtDev; txtManual = $txtManual; lst = $lst; chkVigilar = $chkVigilar
 }
 $script:nextRetry = Get-Date
+$script:cancelar = $false          # bandera de cancelacion leida por el Core
+$script:pendienteManual = $null    # endpoint manual encolado tras cancelar
+$script:monitorPausa = Get-Date    # el monitor no reintenta hasta esta hora
 
 # Puerto dev validado: solo 1-65535; cualquier otra cosa vuelve a 3000.
 function Get-DevPort {
@@ -454,9 +461,22 @@ function Update-Ficha {
 
 function Start-Worker([string]$Accion, [string]$Arg = '') {
   $worker = $script:ui.worker
-  if ($worker.IsBusy) { return }
+  if ($worker.IsBusy) {
+    if ($Accion -eq 'directo' -and $Arg) {
+      # El usuario manda: cancela el intento actual y encola el endpoint manual.
+      $script:pendienteManual = $Arg
+      $script:cancelar = $true
+      $script:monitorPausa = (Get-Date).AddSeconds(60)
+      Ui-Log "Ocupado — cancelando el intento actual y probando $Arg..."
+    } else {
+      Ui-Log 'Ya hay una conexion en curso — espera a que termine o pulsa Detener.'
+    }
+    return
+  }
   if (-not $script:adb) { Ui-Log 'adb no encontrado — instala primero (opcion 2 del menu).'; return }
   $dp = Get-DevPort
+  $script:cancelar = $false         # un intento nuevo limpia la cancelacion
+  $script:monitorPausa = Get-Date   # accion del usuario reanuda el monitor
   $btnConectar.Enabled = $false; $btnManual.Enabled = $false; $btnProbar.Enabled = $false
   $worker.RunWorkerAsync(@{ accion = $Accion; arg = $Arg; devPort = $dp })
 }
@@ -476,6 +496,7 @@ $worker.add_DoWork({
         $script:daemonReiniciado = $false
         & $report 'Conectando (mDNS -> ficha -> vecinos -> subred -> barrido)...'
         $serial = Connect-Auto
+        if ($script:cancelar) { $e.Result = 'FAIL: cancelado por el usuario'; return }
         if (-not $serial) { $e.Result = 'FAIL: sin respuesta del movil'; return }
         $dp = [int]$e.Argument.devPort
         & $report "Movil: $serial"
@@ -501,6 +522,15 @@ $worker.add_RunWorkerCompleted({
   $r = [string]$e.Result
   if ($r -like 'FAIL:*') { Ui-Log $r; $script:nextRetry = (Get-Date).AddSeconds(20) }
   elseif ($r -like 'OK:*') { Ui-Log "Conectado: $($r.Substring(3))" }
+  $script:cancelar = $false
+  if ($script:pendienteManual) {
+    # El usuario pidio un endpoint manual durante la cancelacion: probarlo ya.
+    $ep = $script:pendienteManual; $script:pendienteManual = $null
+    Ui-Log "Probando tu endpoint: $ep"
+    Update-Ficha; Update-Status
+    Start-Worker 'directo' $ep
+    return
+  }
   Update-Ficha
   Update-Status
 })
@@ -537,6 +567,15 @@ $btnQuitar.Add_Click({
 
 $btnRecargar.Add_Click({ try { Update-Ficha } catch { Ui-Error $_ } })
 
+$btnDetener.Add_Click({
+  try {
+    $script:cancelar = $true
+    $script:monitorPausa = (Get-Date).AddSeconds(60)
+    if ($worker.IsBusy) { Ui-Log 'Deteniendo — termina la operacion actual y el monitor pausa 60s.' }
+    else { Ui-Log 'Monitor en pausa 60s — CONECTAR o Conexion directa reanudan.' }
+  } catch { Ui-Error $_ }
+})
+
 $btnReverse.Add_Click({
   try {
     if (-not $script:adb) { Ui-Log 'adb no encontrado.'; return }
@@ -556,6 +595,7 @@ $timer.Interval = 3000
 $timer.Add_Tick({
   try {
     if ($worker.IsBusy -or -not $script:adb) { Update-Status; return }
+    if ((Get-Date) -lt $script:monitorPausa) { Update-Status; return }
     $lista = @(Get-Moviles)
     $dp = Get-DevPort
     if ($lista.Count -eq 0) {
