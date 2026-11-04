@@ -12,6 +12,10 @@ Anti-flapping y busquedas cortas:
 - **Corta al conectar**: Connect-Auto re-verifica `Get-Moviles` en cada
   etapa (ficha, vecinos, subred, efimero) — si el movil aparece, la
   busqueda termina al instante.
+- **Botones siempre vivos**: Start-Worker ya no deshabilita CONECTAR /
+  directo / Probar — antes quedaban muertos durante todo el barrido y
+  el sistema de prioridad (cancelar + probar tu endpoint) no podia
+  dispararse nunca.
 - Mas rapido y menos RAM: lotes del barrido efimero 1200->500
   TcpClient, tope 45s->25s; vecinos 40->15; sondas ficha 3s->1.5s,
   vecinos 800->600ms; subred 4s->2.5s; mDNS ~5.6s->~3.6s.

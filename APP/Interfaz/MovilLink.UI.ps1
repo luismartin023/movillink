@@ -585,7 +585,9 @@ function Start-Worker([string]$Accion, [string]$Arg = '') {
   $dp = Get-DevPort
   $script:cancelar = $false         # un intento nuevo limpia la cancelacion
   $script:monitorPausa = Get-Date   # accion del usuario reanuda el monitor
-  $btnConectar.Enabled = $false; $btnManual.Enabled = $false; $btnProbar.Enabled = $false
+  # Los botones quedan ACTIVOS durante el intento: el guardia real es
+  # worker.IsBusy (encola el endpoint manual y cancela). Deshabilitarlos
+  # dejaba clicks muertos durante barridos largos.
   $worker.RunWorkerAsync(@{ accion = $Accion; arg = $Arg; devPort = $dp })
 }
 
@@ -626,7 +628,6 @@ $worker.add_ProgressChanged({ param($s, $e) if ($e.UserState) { Write-UiLog ([st
 
 $worker.add_RunWorkerCompleted({
   param($s, $e)
-  $btnConectar.Enabled = $true; $btnManual.Enabled = $true; $btnProbar.Enabled = $true
   $r = [string]$e.Result
   if ($r -like 'FAIL:*') { Write-UiLog $r; $script:nextRetry = (Get-Date).AddSeconds(20) }
   elseif ($r -like 'OK:*') { Write-UiLog "Conectado: $($r.Substring(3))" }
