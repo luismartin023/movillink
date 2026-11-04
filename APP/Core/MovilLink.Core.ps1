@@ -65,7 +65,7 @@ function Connect-Auto {
   Log 'Buscando el movil (mDNS)...'
   & $script:adb mdns services | Out-Null
   foreach ($i in 1..6) {
-    if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+    if ($script:cancelar) { Log 'Detenido por el usuario.'; return $null }
     $lista = @(Get-Moviles)
     if ($lista.Count -gt 0) { break }
     if ($i -eq 4) {
@@ -110,7 +110,7 @@ function Connect-Auto {
   if ($lista) { return (Select-Serial $lista) }
 
   # ---- plan B: ficha (historial manual/auto), misma red primero ----
-  if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+  if ($script:cancelar) { Log 'Detenido por el usuario.'; return $null }
   $candidatos = @(Get-Candidatos | Sort-Object { -not (Test-MismaRed $_.ip) })
   $ipsVivas = @()
   foreach ($e in $candidatos) {
@@ -135,7 +135,7 @@ function Connect-Auto {
     if ($vecinos) {
       Log "Sondeando $($vecinos.Count) vecinos ARP en puertos $($puertosFicha -join ', ')..."
       foreach ($ip in $vecinos) {
-        if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+        if ($script:cancelar) { Log 'Detenido por el usuario.'; return $null }
         $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
         foreach ($pp in $puertosFicha) {
           $s = Test-SondaTcp $ip ([int]$pp) 600
@@ -154,7 +154,7 @@ function Connect-Auto {
   foreach ($pp in $puertosFicha) {
     Log "Barriendo la subred en el puerto $pp..."
     foreach ($ip in (Find-EnSubred ([int]$pp))) {
-      if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+      if ($script:cancelar) { Log 'Detenido por el usuario.'; return $null }
       $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
       Log "  ${ip}:$pp responde -> adb connect"
       & $script:adb connect "${ip}:$pp" | Out-Null
@@ -166,7 +166,7 @@ function Connect-Auto {
 
   # ---- ultimo recurso: IP viva pero puerto rotado -> rango efimero ----
   foreach ($ip in ($ipsVivas | Select-Object -Unique)) {
-    if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+    if ($script:cancelar) { Log 'Detenido por el usuario.'; return $null }
     $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
     $p = Find-PuertoEfimero $ip
     if ($p) {

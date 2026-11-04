@@ -606,7 +606,7 @@ $worker.add_DoWork({
         $script:daemonReiniciado = $false
         & $report 'Conectando (mDNS -> ficha -> vecinos -> subred -> barrido)...'
         $serial = Connect-Auto
-        if ($script:cancelar) { $e.Result = 'FAIL: cancelado por el usuario'; return }
+        if ($script:cancelar) { $e.Result = 'FAIL: detenido por el usuario'; return }
         if (-not $serial) { $e.Result = 'FAIL: sin respuesta del movil'; return }
         $dp = [int]$e.Argument.devPort
         & $report "Movil: $serial"

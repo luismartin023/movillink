@@ -7,7 +7,13 @@ function Test-SondaTcp([string]$Ip, [int]$Port, [int]$Ms = 2000) {
   $c = [System.Net.Sockets.TcpClient]::new()
   try {
     $t = $c.ConnectAsync($Ip, $Port)
-    if (-not $t.Wait($Ms)) { return 'Silent' }
+    # Espera en rebanadas de 100ms revisando la cancelacion — Detener
+    # corta la sonda al instante en vez de esperar el timeout completo.
+    $restante = $Ms
+    while (-not $t.Wait(100)) {
+      if ($script:cancelar) { return 'Silent' }
+      $restante -= 100; if ($restante -le 0) { return 'Silent' }
+    }
     if ($c.Connected) { return 'Open' }
     $se = $t.Exception
     while ($se -and -not ($se -is [System.Net.Sockets.SocketException])) { $se = $se.InnerException }
@@ -47,7 +53,13 @@ function Find-EnSubred([int]$Port, [int]$Ms = 2500) {
       $c = [System.Net.Sockets.TcpClient]::new()
       [pscustomobject]@{ ip = $ip; c = $c; t = $c.ConnectAsync($ip, $Port) }
     }
-    if ($clientes) { [void][System.Threading.Tasks.Task]::WaitAll(@($clientes.t), $Ms) }
+    if ($clientes) {
+      $espera = 0
+      while ($espera -lt $Ms -and -not [System.Threading.Tasks.Task]::WaitAll(@($clientes.t), 100)) {
+        if ($script:cancelar) { break }
+        $espera += 100
+      }
+    }
     foreach ($cl in $clientes) { if ($cl.c.Connected) { [void]$encontradas.Add($cl.ip) }; $cl.c.Close() }
   }
   return $encontradas.ToArray()
@@ -80,7 +92,11 @@ function Find-PuertoEfimero([string]$Ip) {
       $c = [System.Net.Sockets.TcpClient]::new()
       [pscustomobject]@{ p = $p; c = $c; t = $c.ConnectAsync($Ip, $p) }
     }
-    [void][System.Threading.Tasks.Task]::WaitAll(@($clientes.t), 800)
+    $espera = 0
+    while ($espera -lt 800 -and -not [System.Threading.Tasks.Task]::WaitAll(@($clientes.t), 100)) {
+      if ($script:cancelar) { break }
+      $espera += 100
+    }
     $abiertos = @()
     foreach ($cl in $clientes) { if ($cl.c.Connected) { $abiertos += $cl.p }; $cl.c.Close() }
     foreach ($p in $abiertos) {

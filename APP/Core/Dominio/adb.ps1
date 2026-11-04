@@ -32,9 +32,12 @@ function Invoke-Reconnect { & $script:adb reconnect 2>$null | Out-Null }
 
 function Wait-Movil([int]$Intentos = 4, [int]$Ms = 600) {
   foreach ($i in 1..$Intentos) {
+    if ($script:cancelar) { return @() }
     $l = @(Get-Moviles)
     if ($l.Count -gt 0) { return $l }
-    Start-Sleep -Milliseconds $Ms
+    # Espera en rebanadas de 100ms — Detener la corta al instante.
+    $msRest = $Ms
+    while ($msRest -gt 0 -and -not $script:cancelar) { Start-Sleep -Milliseconds 100; $msRest -= 100 }
   }
   return @()
 }
