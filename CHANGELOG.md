@@ -16,6 +16,10 @@ Anti-flapping y busquedas cortas:
   directo / Probar — antes quedaban muertos durante todo el barrido y
   el sistema de prioridad (cancelar + probar tu endpoint) no podia
   dispararse nunca.
+- **Detener instantaneo**: todas las esperas (sondas TCP, WaitAll de
+  lotes, sleeps de Wait-Movil) se cortan en rebanadas de 100ms que
+  revisan la bandera — Detener frena el barrido al instante, no al
+  final del timeout.
 - Mas rapido y menos RAM: lotes del barrido efimero 1200->500
   TcpClient, tope 45s->25s; vecinos 40->15; sondas ficha 3s->1.5s,
   vecinos 800->600ms; subred 4s->2.5s; mDNS ~5.6s->~3.6s.
