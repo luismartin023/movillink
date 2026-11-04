@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2013/05/nuspec.xsd">
   <metadata>
     <id>MovilLink</id>
-    <version>1.2.0</version>
+    <version>1.2.2</version>
     <authors>MKZ COMPANY</authors>
     <owners>luismartin023</owners>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>

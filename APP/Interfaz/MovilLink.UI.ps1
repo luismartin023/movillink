@@ -162,8 +162,9 @@ while (-not $cfg.adbOk) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'MovilLink - Puente ADB WiFi'
 $form.ClientSize = New-Object System.Drawing.Size(500, 860)
-$form.FormBorderStyle = 'FixedDialog'
-$form.MaximizeBox = $false
+$form.FormBorderStyle = 'Sizable'
+$form.MaximizeBox = $true
+$form.MinimumSize = $form.Size
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $C.fondo
 $form.Font = New-Object System.Drawing.Font('Segoe UI', 9)
@@ -173,10 +174,16 @@ if (Test-Path $icoPath) { $form.Icon = New-Object System.Drawing.Icon($icoPath) 
 # ---- cabecera azul ----
 $head = New-Object System.Windows.Forms.Panel
 $head.Dock = 'Top'; $head.Height = 108
+$script:verTxt = 'v1.2.2'
 $head.Add_Paint({
   param($s, $e)
-  $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush($s.ClientRectangle, $C.navyTop, $C.navyBot, 0.0)
+  $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush($s.ClientRectangle, $C.navyTop, $C.navyBot, 90.0)
   $e.Graphics.FillRectangle($br, $s.ClientRectangle); $br.Dispose()
+  $fv = New-Object System.Drawing.Font('Segoe UI', 8)
+  $tb = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(120, 160, 215))
+  $sz = $e.Graphics.MeasureString($script:verTxt, $fv)
+  $e.Graphics.DrawString($script:verTxt, $fv, $tb, ($s.ClientSize.Width - $sz.Width - 14), 10)
+  $tb.Dispose(); $fv.Dispose()
 })
 $form.Controls.Add($head)
 
@@ -201,13 +208,6 @@ $lblSub.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
 $lblSub.SetBounds(104, 64, 388, 20); $lblSub.BackColor = [System.Drawing.Color]::Transparent
 $head.Controls.Add($lblSub)
 
-$lblVer = New-Object System.Windows.Forms.Label
-$lblVer.Text = 'v1.2.1'
-$lblVer.ForeColor = [System.Drawing.Color]::FromArgb(120, 160, 215)
-$lblVer.Font = New-Object System.Drawing.Font('Segoe UI', 8)
-$lblVer.AutoSize = $true; $lblVer.Location = '452,16'; $lblVer.BackColor = [System.Drawing.Color]::Transparent
-$head.Controls.Add($lblVer)
-
 # ---- banda de estado ----
 $est = New-Object System.Windows.Forms.Panel
 $est.Dock = 'Top'; $est.Height = 56; $est.BackColor = $C.banda
@@ -216,18 +216,20 @@ $form.Controls.Add($est)
 # Punto de estado pintado: alineacion perfecta con el texto (un caracter
 # de fuente nunca queda centrado — lleva padding interno).
 $script:estadoColor = $C.rojo
+$script:estadoDotY = 14
+$script:estadoDotX = 18
 $est.Add_Paint({
   param($s, $e)
   $e.Graphics.SmoothingMode = 'AntiAlias'
   $b = New-Object System.Drawing.SolidBrush($script:estadoColor)
-  $e.Graphics.FillEllipse($b, 18, 14, 12, 12)
+  $e.Graphics.FillEllipse($b, $script:estadoDotX, $script:estadoDotY, 12, 12)
   $b.Dispose()
 })
 
 $lblEstado = New-Object System.Windows.Forms.Label
 $lblEstado.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
 $lblEstado.ForeColor = $C.texto
-$lblEstado.AutoSize = $true; $lblEstado.Location = '50,9'
+$lblEstado.AutoSize = $true; $lblEstado.Location = '50,4'
 $lblEstado.Text = 'Comprobando...'
 $est.Controls.Add($lblEstado)
 
@@ -235,23 +237,58 @@ $lblDetalle = New-Object System.Windows.Forms.Label
 $lblDetalle.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
 $lblDetalle.ForeColor = $C.subtexto
 $lblDetalle.AutoEllipsis = $true
-$lblDetalle.SetBounds(52, 32, 432, 18)
+$lblDetalle.TextAlign = 'MiddleCenter'
+
+# El alto real del label de estado crece con el DPI y su padding interno —
+# detalle y punto se posicionan midiendo en runtime, nunca hardcodeados.
+$hDet = [System.Windows.Forms.TextRenderer]::MeasureText('Ag', $lblDetalle.Font).Height
+$estadoBottom = [Math]::Max($lblEstado.Bottom, $lblEstado.Top + 20)
+$script:estadoDotY = [int](($lblEstado.Top + $estadoBottom - 12) / 2)
+$lblDetalle.SetBounds(12, ($estadoBottom + 3), [Math]::Max(120, ($est.ClientSize.Width - 24)), ($hDet + 1))
 $est.Controls.Add($lblDetalle)
 
-# ---- boton principal + detener ----
-$btnConectar = New-Btn 'CONECTAR' $C.verde $C.verdeOver @(16, 168, 336, 46)
-$btnConectar.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
-$form.Controls.Add($btnConectar)
+# Bloque punto + estado + detalle centrado en la banda: se recalcula al
+# redimensionar y al cambiar el texto (su ancho varia entre estados).
+function Update-EstadoCentro {
+  $gw = 18 + $lblEstado.Width
+  $dx = [Math]::Max(8, [int](($est.ClientSize.Width - $gw) / 2))
+  $script:estadoDotX = $dx
+  $lblEstado.Left = $dx + 18
+  $lblDetalle.SetBounds(12, $lblDetalle.Top, [Math]::Max(120, ($est.ClientSize.Width - 24)), $lblDetalle.Height)
+  $est.Invalidate()
+}
 
-$btnDetener = New-Btn 'Detener' $C.rojo ([System.Drawing.Color]::FromArgb(185, 40, 40)) @(360, 168, 124, 46)
+# ---- cuerpo: columna centrada con ancho maximo ----
+# En pantalla grande el contenido crece hasta 860px y queda centrado;
+# los controles se estiran por anchors y el log absorbe el alto extra.
+$content = New-Object System.Windows.Forms.Panel
+$content.Dock = 'Fill'; $content.BackColor = $C.fondo
+$form.Controls.Add($content)
+$form.Controls.SetChildIndex($content, 0)
+
+$col = New-Object System.Windows.Forms.Panel
+$col.BackColor = $C.fondo
+$col.SetBounds(0, 0, 500, 696)
+$content.Controls.Add($col)
+
+$content.Add_Resize({ Update-Layout })
+$form.Add_Resize({ Update-Layout })
+$form.Add_ResizeEnd({ Update-Layout })
+
+# ---- boton principal + detener ----
+$btnConectar = New-Btn 'CONECTAR' $C.verde $C.verdeOver @(16, 4, 336, 46)
+$btnConectar.Font = New-Object System.Drawing.Font('Segoe UI', 11, [System.Drawing.FontStyle]::Bold)
+$col.Controls.Add($btnConectar)
+
+$btnDetener = New-Btn 'Detener' $C.rojo ([System.Drawing.Color]::FromArgb(185, 40, 40)) @(360, 4, 124, 46)
 $btnDetener.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold)
-$form.Controls.Add($btnDetener)
+$col.Controls.Add($btnDetener)
 
 # ---- reverse ----
 $grpDev = New-Object System.Windows.Forms.GroupBox
 $grpDev.Text = 'Reverse (dev server)'; $grpDev.ForeColor = $C.texto
-$grpDev.SetBounds(16, 224, 468, 58)
-$form.Controls.Add($grpDev)
+$grpDev.SetBounds(16, 60, 468, 58)
+$col.Controls.Add($grpDev)
 
 $lblDev = New-Object System.Windows.Forms.Label
 $lblDev.Text = 'Puerto dev:'; $lblDev.ForeColor = $C.texto
@@ -270,7 +307,7 @@ $grpDev.Controls.Add($btnReverse)
 $chkVigilar = New-Object System.Windows.Forms.CheckBox
 $chkVigilar.Text = 'Vigilar (auto, 3s)'
 $chkVigilar.ForeColor = $C.texto; $chkVigilar.Checked = $true
-$chkVigilar.AutoSize = $true; $chkVigilar.Location = '316,25'
+$chkVigilar.AutoSize = $false; $chkVigilar.SetBounds(316, 24, 140, 20)
 $tip = New-Object System.Windows.Forms.ToolTip
 $tip.SetToolTip($chkVigilar, 'Cada 3s: reconecta si se cayo y re-aplica el reverse si falta')
 $grpDev.Controls.Add($chkVigilar)
@@ -278,8 +315,8 @@ $grpDev.Controls.Add($chkVigilar)
 # ---- conexion directa ----
 $grpManual = New-Object System.Windows.Forms.GroupBox
 $grpManual.Text = 'Conexion directa (IP:PUERTO del movil)'; $grpManual.ForeColor = $C.texto
-$grpManual.SetBounds(16, 290, 468, 58)
-$form.Controls.Add($grpManual)
+$grpManual.SetBounds(16, 126, 468, 58)
+$col.Controls.Add($grpManual)
 
 $txtManual = New-Object System.Windows.Forms.TextBox
 $txtManual.SetBounds(12, 22, 296, 23)
@@ -293,8 +330,8 @@ $grpManual.Controls.Add($btnManual)
 # ---- dispositivo conectado ----
 $grpDisp = New-Object System.Windows.Forms.GroupBox
 $grpDisp.Text = 'Dispositivo'; $grpDisp.ForeColor = $C.texto
-$grpDisp.SetBounds(16, 356, 468, 66)
-$form.Controls.Add($grpDisp)
+$grpDisp.SetBounds(16, 192, 468, 66)
+$col.Controls.Add($grpDisp)
 
 $lblDispNombre = New-Object System.Windows.Forms.Label
 $lblDispNombre.Font = New-Object System.Drawing.Font('Segoe UI', 9.5, [System.Drawing.FontStyle]::Bold)
@@ -313,8 +350,8 @@ $grpDisp.Controls.Add($lblDispInfo)
 # ---- historial ----
 $grpHist = New-Object System.Windows.Forms.GroupBox
 $grpHist.Text = 'Historial (telefono-ultimo.json - editable a mano)'; $grpHist.ForeColor = $C.texto
-$grpHist.SetBounds(16, 430, 468, 178)
-$form.Controls.Add($grpHist)
+$grpHist.SetBounds(16, 266, 468, 178)
+$col.Controls.Add($grpHist)
 
 $lst = New-Object System.Windows.Forms.ListBox
 $lst.SetBounds(12, 20, 444, 110)
@@ -346,8 +383,8 @@ $grpHist.Controls.Add($btnRecargar)
 # ---- log ----
 $lblLog = New-Object System.Windows.Forms.Label
 $lblLog.Text = 'Registro'; $lblLog.ForeColor = $C.subtexto
-$lblLog.AutoSize = $true; $lblLog.Location = '16,612'
-$form.Controls.Add($lblLog)
+$lblLog.AutoSize = $true; $lblLog.Location = '16,448'
+$col.Controls.Add($lblLog)
 
 $txtLog = New-Object System.Windows.Forms.TextBox
 $txtLog.Multiline = $true; $txtLog.ReadOnly = $true
@@ -355,15 +392,84 @@ $txtLog.ScrollBars = 'Vertical'; $txtLog.WordWrap = $true
 $txtLog.BackColor = $C.logFondo; $txtLog.ForeColor = $C.logTexto
 $txtLog.BorderStyle = 'FixedSingle'
 $txtLog.Font = New-Object System.Drawing.Font('Consolas', 8.5)
-$txtLog.SetBounds(16, 642, 468, 190)
-$form.Controls.Add($txtLog)
+$txtLog.SetBounds(16, 478, 468, 190)
+$col.Controls.Add($txtLog)
 
 $lblPie = New-Object System.Windows.Forms.Label
 $lblPie.Text = 'Luis Martin Peña Mejia - MKZ COMPANY'
 $lblPie.ForeColor = $C.subtexto; $lblPie.Font = New-Object System.Drawing.Font('Segoe UI', 7.5)
 $lblPie.AutoSize = $false; $lblPie.TextAlign = 'MiddleCenter'
-$lblPie.SetBounds(16, 836, 468, 18)
-$form.Controls.Add($lblPie)
+$lblPie.SetBounds(16, 672, 468, 18)
+$col.Controls.Add($lblPie)
+
+# ---- layout responsivo manual ----
+# Ventana estrecha: una columna centrada (max 860px) como el diseno original.
+# Ventana ancha (>=1150px): dos columnas — acciones + registro a la
+# izquierda, historial a altura completa a la derecha. Sin anchors:
+# todas las posiciones se recalculan aqui al redimensionar.
+function Update-Layout {
+  if (-not $col -or -not $content) { return }
+  # El tamano se lee del form (fuente de verdad) — el panel puede ir un
+  # frame por detras durante transiciones de maximizar/restaurar.
+  $W = $form.ClientSize.Width
+  $H = $form.ClientSize.Height - 164
+  if ($W -lt 100 -or $H -lt 300) { return }
+
+  # banda a ancho completo: bloque de estado centrado y detalle estirado
+  Update-EstadoCentro
+  # Repintado total de la cabecera: sin esto, al redimensionar Windows solo
+  # pinta la franja nueva y el "v1.2.1" viejo queda como fantasma duplicado.
+  $head.Invalidate()
+
+  if ($W -lt 1150) {
+    $cw = [Math]::Min($W, 860)
+    $col.SetBounds([int](($W - $cw) / 2), 0, $cw, $H)
+    $gw = $cw - 32
+    $btnConectar.SetBounds(16, 4, ($cw - 164), 46)
+    $btnDetener.SetBounds(($cw - 140), 4, 124, 46)
+    $grpDev.SetBounds(16, 60, $gw, 58)
+    $chkVigilar.SetBounds(($gw - 152), 24, 140, 20)
+    $grpManual.SetBounds(16, 126, $gw, 58)
+    $txtManual.SetBounds(12, 22, ($gw - 172), 23)
+    $btnManual.SetBounds(($gw - 150), 20, 138, 27)
+    $grpDisp.SetBounds(16, 192, $gw, 66)
+    $lblDispNombre.SetBounds(12, 18, ($gw - 24), 18)
+    $lblDispInfo.SetBounds(12, 40, ($gw - 24), 16)
+    $grpHist.SetBounds(16, 266, $gw, 178)
+    $lst.SetBounds(12, 20, ($gw - 24), 110)
+    $btnProbar.Location = '12,138'
+    $btnQuitar.Location = '130,138'
+    $btnRecargar.Location = '248,138'
+    $lblLog.Location = '16,448'
+    $txtLog.SetBounds(16, 478, $gw, ([Math]::Max(60, $H - 506)))
+    $lblPie.SetBounds(16, ($H - 24), $gw, 18)
+  } else {
+    $cw = [Math]::Min(($W - 40), 1500)
+    $col.SetBounds([int](($W - $cw) / 2), 0, $cw, $H)
+    $lw = 560; $rx = 16 + $lw + 16; $rw = $cw - $rx - 16
+    $btnConectar.SetBounds(16, 4, ($lw - 132), 46)
+    $btnDetener.SetBounds(($lw - 108), 4, 124, 46)
+    $grpDev.SetBounds(16, 60, $lw, 58)
+    $chkVigilar.SetBounds(($lw - 152), 24, 140, 20)
+    $grpManual.SetBounds(16, 126, $lw, 58)
+    $txtManual.SetBounds(12, 22, ($lw - 172), 23)
+    $btnManual.SetBounds(($lw - 150), 20, 138, 27)
+    $grpDisp.SetBounds(16, 192, $lw, 66)
+    $lblDispNombre.SetBounds(12, 18, ($lw - 24), 18)
+    $lblDispInfo.SetBounds(12, 40, ($lw - 24), 16)
+    $lblLog.Location = '16,270'
+    $txtLog.SetBounds(16, 294, $lw, ([Math]::Max(60, $H - 322)))
+    $gh = [Math]::Max(120, ($H - 32))
+    $grpHist.SetBounds($rx, 4, $rw, $gh)
+    $lst.SetBounds(12, 20, ([Math]::Max(60, $rw - 24)), ([Math]::Max(40, $gh - 72)))
+    $by = $gh - 40
+    $btnProbar.SetBounds(12, $by, 110, 27)
+    $btnQuitar.SetBounds(130, $by, 110, 27)
+    $btnRecargar.SetBounds(248, $by, 110, 27)
+    $lblPie.SetBounds(16, ($H - 24), ($cw - 32), 18)
+  }
+}
+Update-Layout
 
 $script:ui = @{
   txtLog = $txtLog; lblEstado = $lblEstado; lblDetalle = $lblDetalle
@@ -387,6 +493,7 @@ function Get-DevPort {
 function Set-Detalle([string]$t) {
   $lblDetalle.Text = $t
   $tip.SetToolTip($lblDetalle, $t)
+  Update-EstadoCentro
 }
 
 # Ficha del dispositivo: modelo/marca/Android/IP via getprop — cacheada por

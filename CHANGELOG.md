@@ -1,5 +1,28 @@
 # CHANGELOG — MovilLink
 
+## v1.2.2 — 2026-11-03
+
+Layout responsive y banda de estado:
+
+- **Ventana redimensionable** con maximizar real y tamaño mínimo:
+  `Update-Layout` recalcula todas las posiciones en cada resize — sin
+  anchors peleando con el calculo manual.
+- **Dos modos**: ventana estrecha = columna unica centrada (max 860px,
+  diseño original); ≥1150px = dos columnas (acciones + registro a la
+  izquierda, historial a altura completa a la derecha).
+- Layout blindado: lee `$form.ClientSize` (fuente de verdad) y se
+  engancha a `Resize` + `ResizeEnd` + resize del contenido; todas las
+  dimensiones clampeadas — imposible quedar con posiciones congeladas
+  tras restaurar.
+- **Banda de estado centrada**: punto + texto + detalle se centran
+  midiendo el ancho real del grupo en runtime; detalle `MiddleCenter`
+  a ancho completo con ellipsis + tooltip.
+- Fix solape: el detalle se posiciona por el alto real del label de
+  estado — nunca se montan a ningun DPI.
+- Cabecera: version **pintada** directo en el panel (el label
+  transparente mostraba una caja oscura), gradiente vertical uniforme
+  e invalidate por resize — el texto viejo dejaba fantasmas duplicados.
+
 ## v1.2.1 — 2026-11-03
 
 Control del usuario y mDNS podrido:
