@@ -64,7 +64,7 @@ function Connect-Auto {
   # ---- plan A: mDNS (autoconnect del daemon + linea explicita) ----
   Log 'Buscando el movil (mDNS)...'
   & $script:adb mdns services | Out-Null
-  foreach ($i in 1..8) {
+  foreach ($i in 1..6) {
     if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
     $lista = @(Get-Moviles)
     if ($lista.Count -gt 0) { break }
@@ -85,12 +85,16 @@ function Connect-Auto {
         & $script:adb mdns services | Out-Null
       }
     }
-    Start-Sleep -Milliseconds 700
+    Start-Sleep -Milliseconds 600
   }
-  # Segunda oportunidad tras revivir un daemon zombie (mDNS mudo).
+  # Segunda oportunidad tras revivir un daemon zombie (mDNS mudo) — solo si
+  # NO queda ningun transporte: un offline es un movil reconectando, y un
+  # kill-server ahi es lo que produce el conecta/desconecta.
   if (-not $lista) {
-    Restart-AdbDaemon
-    & $script:adb mdns services | Out-Null
+    if (-not @(Get-Transportes)) {
+      Restart-AdbDaemon
+      & $script:adb mdns services | Out-Null
+    }
     $lista = @(Wait-Movil 6 600)
     if (-not $lista) {
       $linea = & $script:adb mdns services | Where-Object { $_ -match '_adb-tls-connect\._tcp' } | Select-Object -First 1
@@ -110,8 +114,11 @@ function Connect-Auto {
   $candidatos = @(Get-Candidatos | Sort-Object { -not (Test-MismaRed $_.ip) })
   $ipsVivas = @()
   foreach ($e in $candidatos) {
+    # Si el movil aparecio solo (transporte _tcp reconectando), se corta la
+    # busqueda al instante — nada de seguir barriendo estando conectado.
+    $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
     Log "mDNS mudo. Probando ficha $($e.ip):$($e.adbPort)..."
-    $s = Test-SondaTcp $e.ip ([int]$e.adbPort) 3000
+    $s = Test-SondaTcp $e.ip ([int]$e.adbPort) 1500
     if ($s -eq 'Open') {
       & $script:adb connect "$($e.ip):$($e.adbPort)" | Out-Null
       $lista = @(Wait-Movil 6 500)
@@ -129,8 +136,9 @@ function Connect-Auto {
       Log "Sondeando $($vecinos.Count) vecinos ARP en puertos $($puertosFicha -join ', ')..."
       foreach ($ip in $vecinos) {
         if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+        $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
         foreach ($pp in $puertosFicha) {
-          $s = Test-SondaTcp $ip ([int]$pp) 800
+          $s = Test-SondaTcp $ip ([int]$pp) 600
           if ($s -eq 'Refused' -and $ipsVivas -notcontains $ip) { $ipsVivas += $ip }
           if ($s -ne 'Open') { continue }
           Log "  ${ip}:$pp responde -> adb connect"
@@ -147,6 +155,7 @@ function Connect-Auto {
     Log "Barriendo la subred en el puerto $pp..."
     foreach ($ip in (Find-EnSubred ([int]$pp))) {
       if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+      $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
       Log "  ${ip}:$pp responde -> adb connect"
       & $script:adb connect "${ip}:$pp" | Out-Null
       $lista = @(Wait-Movil 2 400)
@@ -157,6 +166,8 @@ function Connect-Auto {
 
   # ---- ultimo recurso: IP viva pero puerto rotado -> rango efimero ----
   foreach ($ip in ($ipsVivas | Select-Object -Unique)) {
+    if ($script:cancelar) { Log 'Cancelado por el usuario.'; return $null }
+    $lista = @(Get-Moviles); if ($lista) { return (Select-Serial $lista) }
     $p = Find-PuertoEfimero $ip
     if ($p) {
       $lista = @(Wait-Movil 5 500)

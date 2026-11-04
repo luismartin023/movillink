@@ -1,5 +1,23 @@
 # CHANGELOG — MovilLink
 
+## v1.2.3 — 2026-11-04
+
+Anti-flapping y busquedas cortas:
+
+- **Histeresis en el monitor**: el auto-connect exige 3 ticks vacios
+  seguidos (~9s) — un parpadeo `offline` ya no dispara el escaner ni
+  mata la conexion (era la causa del conecta/desconecta).
+- **Revivir barato**: transporte `offline` -> `adb reconnect` (~1s) en
+  vez de barrido; `kill-server` solo si no queda NINGUN transporte.
+- **Corta al conectar**: Connect-Auto re-verifica `Get-Moviles` en cada
+  etapa (ficha, vecinos, subred, efimero) — si el movil aparece, la
+  busqueda termina al instante.
+- Mas rapido y menos RAM: lotes del barrido efimero 1200->500
+  TcpClient, tope 45s->25s; vecinos 40->15; sondas ficha 3s->1.5s,
+  vecinos 800->600ms; subred 4s->2.5s; mDNS ~5.6s->~3.6s.
+- PSScriptAnalyzer limpio: `Ui-Log`/`Ui-Error` -> `Write-UiLog`/
+  `Write-UiError`; mutex liberado al cerrar; `$f` sin uso eliminado.
+
 ## v1.2.2 — 2026-11-03
 
 Layout responsive y banda de estado:

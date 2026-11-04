@@ -46,19 +46,19 @@ trap {
   continue
 }
 
-function Ui-Log([string]$m) {
+function Write-UiLog([string]$m) {
   $tb = $script:ui.txtLog
   if (-not $tb -or $tb.IsDisposed) { return }
   $linea = "[{0}] {1}" -f (Get-Date -Format 'HH:mm:ss'), $m
   if ($tb.InvokeRequired) { $tb.Invoke([Action]{ $tb.AppendText($linea + [Environment]::NewLine) }) }
   else { $tb.AppendText($linea + [Environment]::NewLine) }
 }
-$script:OnLog = { param($m) Ui-Log $m }
+$script:OnLog = { param($m) Write-UiLog $m }
 
-function Ui-Error($Err) {
+function Write-UiError($Err) {
   $f = Write-ErrorLog $Err
-  Ui-Log "ERROR: $($Err.Exception.Message)"
-  if ($f) { Ui-Log "  detalle -> $f" }
+  Write-UiLog "ERROR: $($Err.Exception.Message)"
+  if ($f) { Write-UiLog "  detalle -> $f" }
 }
 
 # --------------------------- paleta azul --------------------------------
@@ -142,7 +142,7 @@ function Show-Dependencias {
 
   $btnInst.Add_Click({
     try { Start-Process powershell.exe '-NoProfile','-ExecutionPolicy','Bypass','-File',"`"$raiz\APP\Instalar-Necesarios.ps1`"" }
-    catch { $f = Write-ErrorLog $_ }
+    catch { Write-UiError $_ }
   })
   $btnRe.Add_Click({ $script:reintentar = $true; $f.Close() })
   $btnOut.Add_Click({ $f.Close() })
@@ -174,7 +174,7 @@ if (Test-Path $icoPath) { $form.Icon = New-Object System.Drawing.Icon($icoPath) 
 # ---- cabecera azul ----
 $head = New-Object System.Windows.Forms.Panel
 $head.Dock = 'Top'; $head.Height = 108
-$script:verTxt = 'v1.2.2'
+$script:verTxt = 'v1.2.3'
 $head.Add_Paint({
   param($s, $e)
   $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush($s.ClientRectangle, $C.navyTop, $C.navyBot, 90.0)
@@ -477,6 +477,7 @@ $script:ui = @{
   txtDev = $txtDev; txtManual = $txtManual; lst = $lst; chkVigilar = $chkVigilar
 }
 $script:nextRetry = Get-Date
+$script:caidos = 0                 # ticks consecutivos sin movil (histeresis anti-flap)
 $script:cancelar = $false          # bandera de cancelacion leida por el Core
 $script:pendienteManual = $null    # endpoint manual encolado tras cancelar
 $script:monitorPausa = Get-Date    # el monitor no reintenta hasta esta hora
@@ -485,7 +486,7 @@ $script:monitorPausa = Get-Date    # el monitor no reintenta hasta esta hora
 function Get-DevPort {
   $dp = 0
   if ([int]::TryParse($txtDev.Text.Trim(), [ref]$dp) -and $dp -ge 1 -and $dp -le 65535) { return $dp }
-  if ($txtDev.Text.Trim() -ne '3000') { $txtDev.Text = '3000'; Ui-Log 'Puerto invalido -> vuelve a 3000 (rango 1-65535).' }
+  if ($txtDev.Text.Trim() -ne '3000') { $txtDev.Text = '3000'; Write-UiLog 'Puerto invalido -> vuelve a 3000 (rango 1-65535).' }
   return 3000
 }
 
@@ -533,7 +534,7 @@ function Update-Status {
         $lblDispNombre.Text = 'Ninguno conectado'; $lblDispInfo.Text = ''
         return
       }
-      Ui-Log 'adb detectado.'
+      Write-UiLog 'adb detectado.'
     }
     $lista = @(Get-Moviles)
     $dp = Get-DevPort
@@ -553,7 +554,7 @@ function Update-Status {
     $lblDispNombre.Text = "$(if ($d.nombre) { $d.nombre } else { 'Dispositivo Android' })$(if ($d.so) { "   ·   $($d.so)" } else { '' })"
     $lblDispInfo.Text = "IP: $(if ($d.ip) { $d.ip } else { '?' })   ·   $serial"
     $tip.SetToolTip($lblDispInfo, $lblDispInfo.Text)
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 }
 
 function Update-Ficha {
@@ -574,13 +575,13 @@ function Start-Worker([string]$Accion, [string]$Arg = '') {
       $script:pendienteManual = $Arg
       $script:cancelar = $true
       $script:monitorPausa = (Get-Date).AddSeconds(60)
-      Ui-Log "Ocupado — cancelando el intento actual y probando $Arg..."
+      Write-UiLog "Ocupado — cancelando el intento actual y probando $Arg..."
     } else {
-      Ui-Log 'Ya hay una conexion en curso — espera a que termine o pulsa Detener.'
+      Write-UiLog 'Ya hay una conexion en curso — espera a que termine o pulsa Detener.'
     }
     return
   }
-  if (-not $script:adb) { Ui-Log 'adb no encontrado — instala primero (opcion 2 del menu).'; return }
+  if (-not $script:adb) { Write-UiLog 'adb no encontrado — instala primero (opcion 2 del menu).'; return }
   $dp = Get-DevPort
   $script:cancelar = $false         # un intento nuevo limpia la cancelacion
   $script:monitorPausa = Get-Date   # accion del usuario reanuda el monitor
@@ -621,19 +622,19 @@ $worker.add_DoWork({
   } catch { $e.Result = "FAIL: $($_.Exception.Message)" }
 })
 
-$worker.add_ProgressChanged({ param($s, $e) if ($e.UserState) { Ui-Log ([string]$e.UserState) } })
+$worker.add_ProgressChanged({ param($s, $e) if ($e.UserState) { Write-UiLog ([string]$e.UserState) } })
 
 $worker.add_RunWorkerCompleted({
   param($s, $e)
   $btnConectar.Enabled = $true; $btnManual.Enabled = $true; $btnProbar.Enabled = $true
   $r = [string]$e.Result
-  if ($r -like 'FAIL:*') { Ui-Log $r; $script:nextRetry = (Get-Date).AddSeconds(20) }
-  elseif ($r -like 'OK:*') { Ui-Log "Conectado: $($r.Substring(3))" }
+  if ($r -like 'FAIL:*') { Write-UiLog $r; $script:nextRetry = (Get-Date).AddSeconds(20) }
+  elseif ($r -like 'OK:*') { Write-UiLog "Conectado: $($r.Substring(3))" }
   $script:cancelar = $false
   if ($script:pendienteManual) {
     # El usuario pidio un endpoint manual durante la cancelacion: probarlo ya.
     $ep = $script:pendienteManual; $script:pendienteManual = $null
-    Ui-Log "Probando tu endpoint: $ep"
+    Write-UiLog "Probando tu endpoint: $ep"
     Update-Ficha; Update-Status
     Start-Worker 'directo' $ep
     return
@@ -644,23 +645,23 @@ $worker.add_RunWorkerCompleted({
 
 # ------------------------------ eventos ---------------------------------
 $btnConectar.Add_Click({
-  try { $script:nextRetry = Get-Date; Start-Worker 'auto' } catch { Ui-Error $_ }
+  try { $script:nextRetry = Get-Date; Start-Worker 'auto' } catch { Write-UiError $_ }
 })
 
 $btnManual.Add_Click({
   try {
     $ep = $txtManual.Text.Trim()
-    if ($ep -notmatch '^\d{1,3}(\.\d{1,3}){3}:\d+$') { Ui-Log 'Formato: IP:PUERTO (ej. 192.168.100.189:36653)'; return }
+    if ($ep -notmatch '^\d{1,3}(\.\d{1,3}){3}:\d+$') { Write-UiLog 'Formato: IP:PUERTO (ej. 192.168.100.189:36653)'; return }
     Start-Worker 'directo' $ep
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 })
 
 $btnProbar.Add_Click({
   try {
-    if ($lst.SelectedIndex -lt 0 -or "$($lst.SelectedItem)".StartsWith('(')) { Ui-Log 'Selecciona un endpoint valido del historial.'; return }
+    if ($lst.SelectedIndex -lt 0 -or "$($lst.SelectedItem)".StartsWith('(')) { Write-UiLog 'Selecciona un endpoint valido del historial.'; return }
     $ep = ($lst.SelectedItem -split '\s')[0]
     Start-Worker 'directo' $ep
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 })
 
 $btnQuitar.Add_Click({
@@ -669,31 +670,31 @@ $btnQuitar.Add_Click({
     $ep = ($lst.SelectedItem -split '\s')[0]
     if ($ep -match '^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$') { Remove-Endpoint $Matches[1] ([int]$Matches[2]) }
     Update-Ficha
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 })
 
-$btnRecargar.Add_Click({ try { Update-Ficha } catch { Ui-Error $_ } })
+$btnRecargar.Add_Click({ try { Update-Ficha } catch { Write-UiError $_ } })
 
 $btnDetener.Add_Click({
   try {
     $script:cancelar = $true
     $script:monitorPausa = (Get-Date).AddSeconds(60)
-    if ($worker.IsBusy) { Ui-Log 'Deteniendo — termina la operacion actual y el monitor pausa 60s.' }
-    else { Ui-Log 'Monitor en pausa 60s — CONECTAR o Conexion directa reanudan.' }
-  } catch { Ui-Error $_ }
+    if ($worker.IsBusy) { Write-UiLog 'Deteniendo — termina la operacion actual y el monitor pausa 60s.' }
+    else { Write-UiLog 'Monitor en pausa 60s — CONECTAR o Conexion directa reanudan.' }
+  } catch { Write-UiError $_ }
 })
 
 $btnReverse.Add_Click({
   try {
-    if (-not $script:adb) { Ui-Log 'adb no encontrado.'; return }
+    if (-not $script:adb) { Write-UiLog 'adb no encontrado.'; return }
     $lista = @(Get-Moviles)
-    if (-not $lista) { Ui-Log 'Sin movil conectado.'; return }
+    if (-not $lista) { Write-UiLog 'Sin movil conectado.'; return }
     $serial = Select-Serial $lista
     $dp = Get-DevPort
     Set-Reverse $serial $dp
-    Ui-Log "reverse re-aplicado: tcp:$dp"
+    Write-UiLog "reverse re-aplicado: tcp:$dp"
     Update-Status
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 })
 
 # ------------------------------ monitor ---------------------------------
@@ -706,28 +707,36 @@ $timer.Add_Tick({
     $lista = @(Get-Moviles)
     $dp = Get-DevPort
     if ($lista.Count -eq 0) {
-      if ($chkVigilar.Checked -and (Get-Date) -gt $script:nextRetry) {
-        Ui-Log 'Sin conexion -> autoconectando...'
+      $script:caidos++
+      # Transporte 'offline' = el movil sigue ahi (TLS renegociando, WiFi
+      # dormido): `adb reconnect` lo revive en ~1s sin barrer nada. La
+      # busqueda completa solo arranca tras 3 ticks vacios (~9s de verdad
+      # sin movil) — un parpadeo ya no dispara el escaner.
+      if (@(Get-Transportes | Where-Object { $_.estado -eq 'offline' })) { Invoke-Reconnect }
+      if ($chkVigilar.Checked -and $script:caidos -ge 3 -and (Get-Date) -gt $script:nextRetry) {
+        Write-UiLog 'Sin conexion -> autoconectando...'
+        $script:caidos = 0
         $script:nextRetry = (Get-Date).AddSeconds(25)
         Start-Worker 'auto'
       }
     }
     else {
+      $script:caidos = 0
       $serial = Select-Serial $lista
       if (-not (Test-Reverse $serial $dp)) {
         Set-Reverse $serial $dp
-        Ui-Log "reverse re-aplicado (tcp:$dp)"
+        Write-UiLog "reverse re-aplicado (tcp:$dp)"
       }
     }
     Update-Status
-  } catch { Ui-Error $_ }
+  } catch { Write-UiError $_ }
 })
 $timer.Start()
 
 # ------------------------------- arranque -------------------------------
 $form.Add_Shown({
-  Ui-Log 'MovilLink listo. El monitor vigila conexion y reverse.'
-  if (-not $cfg.adbOk) { Ui-Log 'AVISO: adb no encontrado — opcion 2 del menu MovilLink.bat' }
+  Write-UiLog 'MovilLink listo. El monitor vigila conexion y reverse.'
+  if (-not $cfg.adbOk) { Write-UiLog 'AVISO: adb no encontrado — opcion 2 del menu MovilLink.bat' }
   Update-Ficha
   Update-Status
 })
@@ -760,4 +769,6 @@ try {
   [void][System.Windows.Forms.MessageBox]::Show("MovilLink encontro un error.`n$($_.Exception.Message)`n`nDetalle: $f", 'MovilLink', 'OK', 'Error')
 } finally {
   $timer.Stop()
+  # Libera el mutex de instancia unica al salir limpio.
+  try { $mutex.ReleaseMutex(); $mutex.Dispose() } catch {}
 }

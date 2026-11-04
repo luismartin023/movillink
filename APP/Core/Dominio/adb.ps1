@@ -18,6 +18,18 @@ function Get-Moviles {
   @((& $script:adb devices) | Where-Object { $_ -match "`tdevice$" } | ForEach-Object { ($_ -split '\s+')[0] })
 }
 
+# Todos los transportes con su estado — distingue "no hay nada" de
+# "hay un offline luchando por volver" (kill-server ahi causa el flapping).
+function Get-Transportes {
+  @((& $script:adb devices) | Where-Object { $_ -match "`t" } | ForEach-Object {
+    $f = $_ -split '\s+'; [pscustomobject]@{ serial = $f[0]; estado = $f[1] }
+  })
+}
+
+# Un transporte offline suele revivir con `adb reconnect` (~1s), sin
+# barrer puertos ni tocar el daemon.
+function Invoke-Reconnect { & $script:adb reconnect 2>$null | Out-Null }
+
 function Wait-Movil([int]$Intentos = 4, [int]$Ms = 600) {
   foreach ($i in 1..$Intentos) {
     $l = @(Get-Moviles)

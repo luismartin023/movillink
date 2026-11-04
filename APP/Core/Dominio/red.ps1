@@ -35,7 +35,7 @@ function Test-MismaRed([string]$IpMovil) {
 }
 
 # Sonda TCP paralela a todo el /24 de cada interfaz real con un puerto dado.
-function Find-EnSubred([int]$Port, [int]$Ms = 4000) {
+function Find-EnSubred([int]$Port, [int]$Ms = 2500) {
   $encontradas = [System.Collections.Generic.List[string]]::new()
   foreach ($mi in (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
     Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' -and
@@ -63,16 +63,18 @@ function Get-Vecinos([string[]]$Omitidas) {
       $_.LinkLayerAddress -ne 'ff-ff-ff-ff-ff-ff' -and
       $_.IPAddress -match '^\d{1,3}(\.\d{1,3}){3}$' -and
       $propias -notcontains $_.IPAddress -and $Omitidas -notcontains $_.IPAddress
-    } | Select-Object -ExpandProperty IPAddress -Unique | Select-Object -First 40)
+    } | Select-Object -ExpandProperty IPAddress -Unique | Select-Object -First 15)
 }
 
 # Barrido del rango efimero de Android (32768-60999) en UNA sola IP viva, en
 # lotes paralelos. Cada puerto abierto se valida con `adb connect` real —
-# solo adbd responde al handshake TLS. Tope ~45s.
+# solo adbd responde al handshake TLS. Tope ~25s; aborta si el movil ya
+# aparecio o el usuario cancelo (el barrido no come RAM a lo loco).
 function Find-PuertoEfimero([string]$Ip) {
   Log "  ${Ip}: barriendo rango efimero (puerto rotado)..."
-  $desde = 32768; $hasta = 60999; $lote = 1200; $tope = (Get-Date).AddSeconds(45)
+  $desde = 32768; $hasta = 60999; $lote = 500; $tope = (Get-Date).AddSeconds(25)
   for ($base = $desde; $base -le $hasta -and (Get-Date) -lt $tope; $base += $lote) {
+    if ($script:cancelar -or @(Get-Moviles).Count -gt 0) { return $null }
     $fin = [Math]::Min($base + $lote - 1, $hasta)
     $clientes = foreach ($p in $base..$fin) {
       $c = [System.Net.Sockets.TcpClient]::new()
