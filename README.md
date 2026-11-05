@@ -6,7 +6,7 @@
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1+-5391FE?style=flat-square&logo=powershell&logoColor=white)
 ![ADB](https://img.shields.io/badge/ADB-WiFi%20(TLS)-1E7A3C?style=flat-square&logo=android&logoColor=white)
 ![Licencia](https://img.shields.io/badge/Licencia-MIT-yellow?style=flat-square)
-![Versión](https://img.shields.io/badge/v1.2.3-release-185E30?style=flat-square)
+![Versión](https://img.shields.io/badge/v1.2.4-release-185E30?style=flat-square)
 ![Hecho en RD](https://img.shields.io/badge/Hecho%20en-Rep%C3%BAblica%20Dominicana%20%F0%9F%87%A9%F0%9F%87%B4-CE1126?style=flat-square)
 
 </div>
@@ -32,7 +32,7 @@ pestaña.
 
 | Vía | Enlace | Para quién |
 |---|---|---|
-| **Release ZIP** | [MovilLink-v1.2.3.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
+| **Release ZIP** | [MovilLink-v1.2.4.zip](https://github.com/luismartin023/movillink/releases/latest) | Todos — la forma recomendada |
 | **NuGet** | [MovilLink en GitHub Packages](https://github.com/luismartin023/movillink/pkgs/nuget/MovilLink) | `dotnet add package MovilLink` |
 | Code → Download ZIP | Este repo | Si quieres el código fuente completo |
 

@@ -1,5 +1,16 @@
 # CHANGELOG — MovilLink
 
+## v1.2.4 — 2026-11-04
+
+Detener de verdad y reintentos inteligentes:
+
+- **Detener = parada indefinida**: el monitor ya no se reactiva solo a
+  los 60s — queda parado hasta que pulses CONECTAR, Conexion directa,
+  Probar, o re-marques Vigilar.
+- **Backoff exponencial** en reintentos auto: 25s -> 50 -> 100 -> 200
+  -> max 300s con aviso del proximo reintento — fin del spam
+  `autoconectando` cada 27s con el movil apagado.
+
 ## v1.2.3 — 2026-11-04
 
 Anti-flapping y busquedas cortas:

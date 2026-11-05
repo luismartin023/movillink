@@ -174,7 +174,7 @@ if (Test-Path $icoPath) { $form.Icon = New-Object System.Drawing.Icon($icoPath) 
 # ---- cabecera azul ----
 $head = New-Object System.Windows.Forms.Panel
 $head.Dock = 'Top'; $head.Height = 108
-$script:verTxt = 'v1.2.3'
+$script:verTxt = 'v1.2.4'
 $head.Add_Paint({
   param($s, $e)
   $br = New-Object System.Drawing.Drawing2D.LinearGradientBrush($s.ClientRectangle, $C.navyTop, $C.navyBot, 90.0)
@@ -478,9 +478,10 @@ $script:ui = @{
 }
 $script:nextRetry = Get-Date
 $script:caidos = 0                 # ticks consecutivos sin movil (histeresis anti-flap)
+$script:backoff = 25               # reintento auto exponencial (25 -> 300s max)
 $script:cancelar = $false          # bandera de cancelacion leida por el Core
+$script:detenido = $false          # Detener: monitor parado hasta accion manual
 $script:pendienteManual = $null    # endpoint manual encolado tras cancelar
-$script:monitorPausa = Get-Date    # el monitor no reintenta hasta esta hora
 
 # Puerto dev validado: solo 1-65535; cualquier otra cosa vuelve a 3000.
 function Get-DevPort {
@@ -574,7 +575,6 @@ function Start-Worker([string]$Accion, [string]$Arg = '') {
       # El usuario manda: cancela el intento actual y encola el endpoint manual.
       $script:pendienteManual = $Arg
       $script:cancelar = $true
-      $script:monitorPausa = (Get-Date).AddSeconds(60)
       Write-UiLog "Ocupado — cancelando el intento actual y probando $Arg..."
     } else {
       Write-UiLog 'Ya hay una conexion en curso — espera a que termine o pulsa Detener.'
@@ -584,7 +584,8 @@ function Start-Worker([string]$Accion, [string]$Arg = '') {
   if (-not $script:adb) { Write-UiLog 'adb no encontrado — instala primero (opcion 2 del menu).'; return }
   $dp = Get-DevPort
   $script:cancelar = $false         # un intento nuevo limpia la cancelacion
-  $script:monitorPausa = Get-Date   # accion del usuario reanuda el monitor
+  $script:detenido = $false         # accion del usuario reanuda el monitor
+  $script:backoff = 25              # y resetea el backoff de reintentos
   # Los botones quedan ACTIVOS durante el intento: el guardia real es
   # worker.IsBusy (encola el endpoint manual y cancela). Deshabilitarlos
   # dejaba clicks muertos durante barridos largos.
@@ -629,8 +630,15 @@ $worker.add_ProgressChanged({ param($s, $e) if ($e.UserState) { Write-UiLog ([st
 $worker.add_RunWorkerCompleted({
   param($s, $e)
   $r = [string]$e.Result
-  if ($r -like 'FAIL:*') { Write-UiLog $r; $script:nextRetry = (Get-Date).AddSeconds(20) }
-  elseif ($r -like 'OK:*') { Write-UiLog "Conectado: $($r.Substring(3))" }
+  if ($r -like 'FAIL:*') {
+    Write-UiLog $r
+    # Backoff exponencial: 25 -> 50 -> 100 -> 200 -> 300s max. Menos spam
+    # en el registro y menos desgaste con el movil apagado un rato.
+    $script:nextRetry = (Get-Date).AddSeconds($script:backoff)
+    if ($chkVigilar.Checked -and -not $script:detenido) { Write-UiLog "  (proximo reintento auto en $($script:backoff)s)" }
+    $script:backoff = [Math]::Min($script:backoff * 2, 300)
+  }
+  elseif ($r -like 'OK:*') { $script:backoff = 25; Write-UiLog "Conectado: $($r.Substring(3))" }
   $script:cancelar = $false
   if ($script:pendienteManual) {
     # El usuario pidio un endpoint manual durante la cancelacion: probarlo ya.
@@ -679,11 +687,13 @@ $btnRecargar.Add_Click({ try { Update-Ficha } catch { Write-UiError $_ } })
 $btnDetener.Add_Click({
   try {
     $script:cancelar = $true
-    $script:monitorPausa = (Get-Date).AddSeconds(60)
-    if ($worker.IsBusy) { Write-UiLog 'Deteniendo — termina la operacion actual y el monitor pausa 60s.' }
-    else { Write-UiLog 'Monitor en pausa 60s — CONECTAR o Conexion directa reanudan.' }
+    $script:detenido = $true
+    Write-UiLog 'Detenido — el monitor no reintentara hasta CONECTAR, directo o Vigilar.'
   } catch { Write-UiError $_ }
 })
+
+# Re-marcar Vigilar a mano tambien rearma el monitor.
+$chkVigilar.Add_CheckedChanged({ if ($chkVigilar.Checked) { $script:detenido = $false } })
 
 $btnReverse.Add_Click({
   try {
@@ -704,7 +714,7 @@ $timer.Interval = 3000
 $timer.Add_Tick({
   try {
     if ($worker.IsBusy -or -not $script:adb) { Update-Status; return }
-    if ((Get-Date) -lt $script:monitorPausa) { Update-Status; return }
+    if ($script:detenido) { Update-Status; return }
     $lista = @(Get-Moviles)
     $dp = Get-DevPort
     if ($lista.Count -eq 0) {
@@ -717,7 +727,7 @@ $timer.Add_Tick({
       if ($chkVigilar.Checked -and $script:caidos -ge 3 -and (Get-Date) -gt $script:nextRetry) {
         Write-UiLog 'Sin conexion -> autoconectando...'
         $script:caidos = 0
-        $script:nextRetry = (Get-Date).AddSeconds(25)
+        $script:nextRetry = (Get-Date).AddSeconds($script:backoff)
         Start-Worker 'auto'
       }
     }
